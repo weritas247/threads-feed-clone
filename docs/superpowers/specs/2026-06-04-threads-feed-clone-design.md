@@ -5,15 +5,31 @@
 
 ## Purpose
 
-Fetch a public Threads account's data and render its **feed** with a UI identical
-to the real Threads UI. Account is chosen via URL. Theme supports both dark and
+Fetch public Threads accounts' data and render their **feed** with a UI identical
+to the real Threads UI. Two views: an aggregated home feed across a configured list
+of accounts, and a per-account feed chosen via URL. Theme supports both dark and
 light with a toggle.
 
 ## Scope
 
-- **In scope:** Feed rendering only, for a single public account at a time.
-- **Out of scope:** Login, posting, profile/about tabs, search beyond URL, notifications,
-  DMs, official OAuth API (left as a future swap behind the normalization layer).
+- **In scope:**
+  - **Aggregated home feed** (`/`): posts from a configured list of accounts, merged
+    and sorted newest-first (like a following feed).
+  - **Per-account feed** (`/[username]`): a single account's posts; reachable by clicking
+    an author in the aggregated feed.
+- **Out of scope:** Login, posting, profile/about tabs, search, notifications, DMs,
+  official OAuth API (left as a future swap behind the normalization layer).
+
+## Configured Accounts
+
+The aggregated feed reads from a config list (`config/accounts.ts`) of usernames.
+Initial list (AI-related accounts):
+
+`autogod.ai`, `ai.yeongseon`, `manus`, `gptaku_ai`, `reels_code_official`,
+`ai_tusol`, `fast.ports.ai`, `promppy_com`, `hyle.ai.kr`, `crealwork`,
+`algovaultai`, `anelo_tech`, `mceo.atm`, `yoonkwon_ai`, `mapilnyeo`,
+`choi.openai`, `glow.aistudio`, `sangwon.ropefree`, `freainer`, `let.s.ai`,
+`peebiki`, `aicoffeechat`, `aiowner_`, `codecasper_ai`
 
 ## Tech Stack
 
@@ -26,17 +42,27 @@ light with a toggle.
 ## Architecture
 
 ```
-/[username] (server component / route)
-   └─ lib/threads.ts  (scraper — the only fragile, swappable unit)
-        1) fetch public profile HTML at threads.net/@username → extract user_id
-        2) call Threads GraphQL endpoint (doc_id + required headers) for the feed
-        3) normalize raw JSON → internal domain types
-   └─ <Feed posts={Post[]} />  (pure presentation, data-source agnostic)
+/ (home, server)                    /[username] (server)
+   └─ config/accounts.ts               └─ lib/threads.ts (one account)
+   └─ fetch each account in parallel    └─ <Feed posts={Post[]} />
+      via lib/threads.ts
+   └─ merge + sort by createdAt desc
+   └─ <Feed posts={Post[]} />
+
+lib/threads.ts  (scraper — the only fragile, swappable unit)
+   1) fetch public profile HTML at threads.net/@username → extract user_id
+   2) call Threads GraphQL endpoint (doc_id + required headers) for the feed
+   3) normalize raw JSON → internal domain types
 ```
 
 Data flows server → client. The scraper is isolated in one module so that when Meta
 changes page/endpoint structure, only `lib/threads.ts` (and its fixtures) need updating.
 The UI consumes only the normalized domain types and never touches raw scrape output.
+
+The aggregated home feed fetches each configured account concurrently, tolerates
+individual-account failures (skips a failed account rather than failing the whole page),
+merges all posts, and sorts newest-first. A per-post `author` link routes to
+`/[username]`.
 
 ### Why a normalization layer
 
