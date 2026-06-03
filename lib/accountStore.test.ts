@@ -45,12 +45,20 @@ describe('accountStore', () => {
     expect(enabledUsernames()).not.toContain('toggle_me');
   });
 
-  it('records a crawl result on the matching account', () => {
+  it('records a crawl result (incl. avatar) on the matching account', () => {
     addAccount('crawled');
-    recordCrawl('crawled', 'ok', 7, 1700000000000);
+    recordCrawl('crawled', 'ok', 7, 1700000000000, 'https://cdn/a.jpg');
     const a = getAccounts().find((x) => x.username === 'crawled');
     expect(a?.lastStatus).toBe('ok');
     expect(a?.lastCount).toBe(7);
     expect(a?.lastCrawledAt).toBe(1700000000000);
+    expect(a?.avatarUrl).toBe('https://cdn/a.jpg');
+  });
+
+  it('preserves a previously stored avatar when a later crawl omits it', () => {
+    addAccount('keepav');
+    recordCrawl('keepav', 'ok', 1, 1, 'https://cdn/keep.jpg');
+    recordCrawl('keepav', 'blocked', 0, 2); // no avatar this time
+    expect(getAccounts().find((x) => x.username === 'keepav')?.avatarUrl).toBe('https://cdn/keep.jpg');
   });
 });

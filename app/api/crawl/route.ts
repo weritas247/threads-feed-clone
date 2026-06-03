@@ -17,8 +17,9 @@ export async function POST(request: Request): Promise<Response> {
     const result = await fetchAccountFeed(handle);
     const status = result.ok ? 'ok' : result.reason;
     const count = result.ok ? result.posts.length : 0;
+    const avatarUrl = result.ok ? result.posts[0]?.author.avatarUrl : undefined;
     if (result.ok) savePosts(handle, result.posts);
-    recordCrawl(handle, status, count, Date.now());
+    recordCrawl(handle, status, count, Date.now(), avatarUrl);
   }
 
   const list: AccountEntry[] = getAccounts();

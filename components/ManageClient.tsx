@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { AccountEntry, CrawlStatus } from '@/lib/accountStore';
 import { relativeTime } from '@/lib/format';
+import { AccountIcon } from './AccountIcon';
 
 const STATUS_LABEL: Record<CrawlStatus, string> = {
   ok: 'OK',
@@ -132,7 +133,8 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                 />
               </td>
               <td className="py-2">
-                <Link href={`/@${a.username}`} className="text-fg hover:underline">
+                <Link href={`/@${a.username}`} className="flex items-center gap-2 text-fg hover:underline">
+                  <AccountIcon src={a.avatarUrl} username={a.username} size={28} />
                   {a.username}
                 </Link>
               </td>

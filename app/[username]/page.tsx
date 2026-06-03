@@ -1,5 +1,6 @@
 import { fetchAccountFeed, normalizeUsername } from '@/lib/threads';
 import { Feed } from '@/components/Feed';
+import { AccountIcon } from '@/components/AccountIcon';
 
 export const revalidate = 300;
 
@@ -20,9 +21,12 @@ export default async function AccountPage({
     return <p className="px-4 py-16 text-center text-secondary">{msg}</p>;
   }
 
+  const avatarUrl = result.posts[0]?.author.avatarUrl;
   return (
     <>
-      <h2 className="px-4 pt-4 text-xl font-bold text-fg">@{handle}</h2>
+      <h2 className="flex items-center gap-2 px-4 pt-4 text-xl font-bold text-fg">
+        <AccountIcon src={avatarUrl} username={handle} size={32} />@{handle}
+      </h2>
       <Feed posts={result.posts} />
     </>
   );

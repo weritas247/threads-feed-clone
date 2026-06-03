@@ -12,6 +12,7 @@ export type CrawlStatus = 'ok' | 'private' | 'not_found' | 'blocked' | 'parse_er
 export interface AccountEntry {
   username: string;
   enabled: boolean;
+  avatarUrl?: string;
   lastStatus?: CrawlStatus;
   lastCount?: number;
   lastCrawledAt?: number; // unix milliseconds
@@ -78,10 +79,19 @@ export function recordCrawl(
   status: CrawlStatus,
   count: number,
   when: number,
+  avatarUrl?: string,
 ): AccountEntry[] {
   const handle = normalize(username);
   const list = getAccounts().map((a) =>
-    a.username === handle ? { ...a, lastStatus: status, lastCount: count, lastCrawledAt: when } : a,
+    a.username === handle
+      ? {
+          ...a,
+          lastStatus: status,
+          lastCount: count,
+          lastCrawledAt: when,
+          avatarUrl: avatarUrl ?? a.avatarUrl,
+        }
+      : a,
   );
   save(list);
   return list;

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getSavedPosts } from '@/lib/postStore';
 import { normalizeUsername } from '@/lib/threads';
 import { Feed } from '@/components/Feed';
+import { AccountIcon } from '@/components/AccountIcon';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,8 @@ export default async function SavedPostsPage({
           ← Manage
         </Link>
       </div>
-      <h2 className="px-4 pb-1 pt-2 text-xl font-bold text-fg">
+      <h2 className="flex items-center gap-2 px-4 pb-1 pt-2 text-xl font-bold text-fg">
+        <AccountIcon src={posts[0]?.author.avatarUrl} username={handle} size={32} />
         Saved · @{handle} <span className="text-secondary">({posts.length})</span>
       </h2>
       {posts.length === 0 ? (
