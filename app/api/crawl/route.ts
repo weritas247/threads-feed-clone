@@ -1,6 +1,7 @@
 import { fetchAccountFeed } from '@/lib/threads';
 import { enabledUsernames, recordCrawl, getAccounts } from '@/lib/accountStore';
 import type { AccountEntry } from '@/lib/accountStore';
+import { savePosts } from '@/lib/postStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,7 @@ export async function POST(request: Request): Promise<Response> {
     const result = await fetchAccountFeed(handle);
     const status = result.ok ? 'ok' : result.reason;
     const count = result.ok ? result.posts.length : 0;
+    if (result.ok) savePosts(handle, result.posts);
     recordCrawl(handle, status, count, Date.now());
   }
 

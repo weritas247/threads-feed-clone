@@ -144,7 +144,13 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                 {a.lastCrawledAt ? relativeTime(Math.floor(a.lastCrawledAt / 1000)) + ' ago' : '—'}
               </td>
               <td className="py-2">
-                <div className="flex justify-end gap-2">
+                <div className="flex items-center justify-end gap-2">
+                  <Link
+                    href={`/manage/${a.username}`}
+                    className="rounded-md border border-border px-2 py-1 text-xs text-fg"
+                  >
+                    Saved
+                  </Link>
                   <button
                     type="button"
                     onClick={() => crawl(a.username)}

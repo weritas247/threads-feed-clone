@@ -35,6 +35,9 @@ A management tab to control crawling without editing code:
   home feed).
 - Run a crawl per account, or "Crawl all enabled", and see each account's last
   status (OK / Private / Not found / Blocked / Parse error), post count, and time.
+- Each crawl **saves the fetched posts** to disk (accumulating, deduped by id). Open
+  a row's **Saved** link to browse the stored posts for that account at
+  `/manage/<username>` — rendered from storage, no re-scraping.
 
 State is persisted to `data/accounts.json` (a file, no database; git-ignored and
 seeded from `config/accounts.ts` on first run). The relevant pieces:
