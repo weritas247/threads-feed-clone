@@ -10,7 +10,9 @@ export function ThreadChain({ posts, highlight }: { posts: Post[]; highlight?: s
     <div className="mt-1">
       {posts.map((p) => (
         <div key={p.id} className="flex gap-3 pt-3">
-          <Avatar src={p.author.avatarUrl} username={p.author.username} size={28} />
+          <div className="shrink-0 self-start">
+            <Avatar src={p.author.avatarUrl} username={p.author.username} size={28} />
+          </div>
           <div className="min-w-0 flex-1">
             <span className="text-[15px] font-semibold text-fg">{p.author.username}</span>
             {p.text && (
