@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 255 255 255;
+  --elevated: 255 255 255;
+  --fg: 0 0 0;
+  --secondary: 153 153 153;
+  --border: 219 219 219;
+}
+.dark {
+  --bg: 16 16 16;
+  --elevated: 24 24 24;
+  --fg: 243 245 247;
+  --secondary: 119 119 119;
+  --border: 47 47 47;
+}
+html, body { padding: 0; margin: 0; }
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
