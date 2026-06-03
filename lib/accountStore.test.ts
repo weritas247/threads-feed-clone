@@ -8,6 +8,8 @@ import {
   removeAccount,
   setEnabled,
   recordCrawl,
+  setAvatar,
+  accountsMissingAvatar,
   enabledUsernames,
 } from './accountStore';
 
@@ -60,5 +62,13 @@ describe('accountStore', () => {
     recordCrawl('keepav', 'ok', 1, 1, 'https://cdn/keep.jpg');
     recordCrawl('keepav', 'blocked', 0, 2); // no avatar this time
     expect(getAccounts().find((x) => x.username === 'keepav')?.avatarUrl).toBe('https://cdn/keep.jpg');
+  });
+
+  it('sets an avatar without a crawl and tracks which accounts still lack one', () => {
+    addAccount('avtest');
+    expect(accountsMissingAvatar()).toContain('avtest');
+    setAvatar('avtest', 'https://cdn/av.jpg');
+    expect(getAccounts().find((x) => x.username === 'avtest')?.avatarUrl).toBe('https://cdn/av.jpg');
+    expect(accountsMissingAvatar()).not.toContain('avtest');
   });
 });

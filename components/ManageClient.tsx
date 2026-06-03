@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { AccountEntry, CrawlStatus } from '@/lib/accountStore';
 import { relativeTime } from '@/lib/format';
@@ -44,6 +44,21 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
     if (!res.ok) return null;
     return (await res.json()) as AccountEntry[];
   }
+
+  // Self-heal: on first load, backfill avatars for any account missing one, so the
+  // icon is always the real picture regardless of whether it has been crawled.
+  useEffect(() => {
+    let cancelled = false;
+    if (accounts.some((a) => !a.avatarUrl)) {
+      api('/api/accounts/avatars', 'POST').then((list) => {
+        if (!cancelled && list) setAccounts(list);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function add() {
     const name = newName.trim();

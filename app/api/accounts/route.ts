@@ -1,4 +1,5 @@
-import { getAccounts, addAccount, removeAccount, setEnabled } from '@/lib/accountStore';
+import { getAccounts, addAccount, removeAccount, setEnabled, setAvatar } from '@/lib/accountStore';
+import { fetchProfileAvatar, normalizeUsername } from '@/lib/threads';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,11 @@ export async function POST(request: Request): Promise<Response> {
   if (!username || !username.trim()) {
     return new Response('username required', { status: 400 });
   }
-  return Response.json(addAccount(username));
+  addAccount(username);
+  // Resolve the new account's avatar immediately so it shows without a crawl.
+  const avatar = await fetchProfileAvatar(username);
+  const list = avatar ? setAvatar(normalizeUsername(username).toLowerCase(), avatar) : getAccounts();
+  return Response.json(list);
 }
 
 export async function PATCH(request: Request): Promise<Response> {

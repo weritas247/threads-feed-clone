@@ -97,6 +97,19 @@ export function recordCrawl(
   return list;
 }
 
+export function setAvatar(username: string, avatarUrl: string): AccountEntry[] {
+  const handle = normalize(username);
+  const list = getAccounts().map((a) => (a.username === handle ? { ...a, avatarUrl } : a));
+  save(list);
+  return list;
+}
+
+export function accountsMissingAvatar(): string[] {
+  return getAccounts()
+    .filter((a) => !a.avatarUrl)
+    .map((a) => a.username);
+}
+
 export function enabledUsernames(): string[] {
   return getAccounts()
     .filter((a) => a.enabled)
