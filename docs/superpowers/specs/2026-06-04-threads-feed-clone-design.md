@@ -50,10 +50,24 @@ Initial list (AI-related accounts):
    └─ <Feed posts={Post[]} />
 
 lib/threads.ts  (scraper — the only fragile, swappable unit)
-   1) fetch public profile HTML at threads.net/@username → extract user_id
-   2) call Threads GraphQL endpoint (doc_id + required headers) for the feed
-   3) normalize raw JSON → internal domain types
+   1) server-side fetch https://www.threads.com/@username with browser-like
+      headers (Sec-Fetch-*, Accept: text/html, Accept-Encoding gzip) — required,
+      a plain fetch returns only a JS shell with no post data
+   2) parse the embedded <script type="application/json"> blocks; collect every
+      object containing a `thread_items` array (each = a thread, 1 post or a chain)
+   3) normalize raw post JSON → internal domain types
 ```
+
+**Verified data path (2026-06-04):** With proper browser headers, a server-side
+HTTP GET of `threads.com/@username` returns HTML embedding full post data — no
+GraphQL doc_id and no headless browser required. Raw post fields:
+`pk`, `code` (permalink slug), `taken_at` (unix seconds), `like_count`,
+`caption.text`, `user.{username,full_name,profile_pic_url,is_verified}`,
+`text_post_app_info.{direct_reply_count,repost_count,reshare_count,quote_count,self_thread_info}`,
+media via `image_versions2.candidates[]`, `carousel_media[]`, `video_versions[]`,
+`media_type`, `accessibility_caption`.
+Optional: Instagram `web_profile_info` resolves username → user_id / privacy /
+avatar when the profile-page parse needs a fallback.
 
 Data flows server → client. The scraper is isolated in one module so that when Meta
 changes page/endpoint structure, only `lib/threads.ts` (and its fixtures) need updating.
@@ -85,7 +99,9 @@ touching any component.
 - `Media` — single image / carousel / video.
 - `ActionBar` — like / reply / repost / share icons with counts.
 - `ThreadChain` — connected posts with the left vertical connector line.
-- `ReplyFacepile` — "OOO and N others replied" row.
+- `ReplyFacepile` — "OOO and N others replied" row. **Deferred:** the profile scrape
+  exposes a reply *count* (shown in the action bar) but not replier avatars, so the
+  facepile is omitted rather than faked until a data source provides it.
 - `ThemeToggle` — top-right dark/light switch.
 
 Visual details (spacing, typography, the vertical thread connector line) are reproduced
