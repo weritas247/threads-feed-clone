@@ -1,13 +1,27 @@
 import type { Post } from './types';
 
-// Case-insensitive search over post body and author name/handle.
+// Split a query into lowercased whitespace-separated terms.
+export function tokenize(query: string): string[] {
+  return query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function matchesAll(haystack: string, terms: string[]): boolean {
+  const hay = haystack.toLowerCase();
+  return terms.every((t) => hay.includes(t));
+}
+
+// Posts where EVERY term appears in the body, username, or display name.
 export function searchPosts(posts: Post[], query: string): Post[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  return posts.filter(
-    (p) =>
-      p.text.toLowerCase().includes(q) ||
-      p.author.username.toLowerCase().includes(q) ||
-      p.author.displayName.toLowerCase().includes(q),
+  const terms = tokenize(query);
+  if (terms.length === 0) return [];
+  return posts.filter((p) =>
+    matchesAll(`${p.text} ${p.author.username} ${p.author.displayName}`, terms),
   );
+}
+
+// Whether an account's handle/display name matches every term.
+export function accountMatches(username: string, displayName: string, query: string): boolean {
+  const terms = tokenize(query);
+  if (terms.length === 0) return false;
+  return matchesAll(`${username} ${displayName}`, terms);
 }

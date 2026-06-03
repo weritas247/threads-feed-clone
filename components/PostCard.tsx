@@ -8,8 +8,9 @@ import { MoreIcon } from './icons';
 import { MediaView } from './Media';
 import { ActionBar } from './ActionBar';
 import { ThreadChain } from './ThreadChain';
+import { Highlight } from './Highlight';
 
-export function PostCard({ post }: { post: Post }) {
+export function PostCard({ post, highlight }: { post: Post; highlight?: string[] }) {
   return (
     <article className="flex gap-3 border-b border-border px-4 py-3">
       <div className="flex flex-col items-center">
@@ -53,10 +54,14 @@ export function PostCard({ post }: { post: Post }) {
             </a>
           )}
         </div>
-        {post.text && <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-[1.4] text-fg">{post.text}</p>}
+        {post.text && (
+          <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-[1.4] text-fg">
+            <Highlight text={post.text} terms={highlight} />
+          </p>
+        )}
         <MediaView media={post.media} />
         <ActionBar stats={post.stats} />
-        <ThreadChain posts={post.chain} />
+        <ThreadChain posts={post.chain} highlight={highlight} />
       </div>
     </article>
   );

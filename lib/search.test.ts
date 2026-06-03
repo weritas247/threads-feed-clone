@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { searchPosts } from './search';
+import { searchPosts, tokenize, accountMatches } from './search';
 import type { Post } from './types';
 
 const mk = (id: string, text: string, username = 'acct', displayName = 'Account'): Post => ({
@@ -32,5 +32,28 @@ describe('searchPosts', () => {
   });
   it('returns nothing when there is no match', () => {
     expect(searchPosts(posts, 'zzznope')).toEqual([]);
+  });
+
+  it('requires ALL terms to match (AND) across body and author', () => {
+    // both terms present (one in body, one in handle) → match
+    expect(searchPosts(posts, 'claude gptaku').map((p) => p.id)).toEqual(['1']);
+    // one term missing → no match
+    expect(searchPosts(posts, 'claude midjourney')).toEqual([]);
+  });
+});
+
+describe('tokenize', () => {
+  it('splits on whitespace and lowercases', () => {
+    expect(tokenize('  Claude  CODE ')).toEqual(['claude', 'code']);
+  });
+  it('returns [] for blank input', () => {
+    expect(tokenize('   ')).toEqual([]);
+  });
+});
+
+describe('accountMatches', () => {
+  it('matches across username and display name with all terms', () => {
+    expect(accountMatches('gptaku_ai', '지피타쿠', 'gptaku')).toBe(true);
+    expect(accountMatches('gptaku_ai', '지피타쿠', 'gptaku zzz')).toBe(false);
   });
 });

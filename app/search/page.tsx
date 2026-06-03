@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { getAllSavedPosts } from '@/lib/postStore';
-import { searchPosts } from '@/lib/search';
+import { searchPosts, tokenize, accountMatches } from '@/lib/search';
 import { getAccounts } from '@/lib/accountStore';
 import { Feed } from '@/components/Feed';
 import { SearchBox } from '@/components/SearchBox';
 import { AccountIcon } from '@/components/AccountIcon';
+import { Highlight } from '@/components/Highlight';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,15 +16,11 @@ export default async function SearchPage({
 }) {
   const { q = '' } = await searchParams;
   const query = q.trim();
-  const lower = query.toLowerCase();
+  const terms = tokenize(query);
 
   const posts = query ? searchPosts(getAllSavedPosts(), query) : [];
   const accounts = query
-    ? getAccounts().filter(
-        (a) =>
-          a.username.toLowerCase().includes(lower) ||
-          a.username.replace(/[._]/g, '').includes(lower.replace(/[._]/g, '')),
-      )
+    ? getAccounts().filter((a) => accountMatches(a.username, a.username, query))
     : [];
 
   return (
@@ -51,14 +48,14 @@ export default async function SearchPage({
                   className="flex items-center gap-2 py-1.5 text-fg hover:underline"
                 >
                   <AccountIcon src={a.avatarUrl} username={a.username} size={28} />
-                  {a.username}
+                  <Highlight text={a.username} terms={terms} />
                 </Link>
               ))}
             </div>
           )}
 
           {posts.length > 0 ? (
-            <Feed posts={posts} />
+            <Feed posts={posts} highlight={terms} />
           ) : (
             <p className="px-4 py-16 text-center text-secondary">
               No saved posts match. Crawl accounts from the manage tab to build the
