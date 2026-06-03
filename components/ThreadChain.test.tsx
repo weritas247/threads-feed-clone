@@ -4,7 +4,7 @@ import { ThreadChain } from './ThreadChain';
 import type { Post } from '@/lib/types';
 
 const child: Post = {
-  id: '2', code: 'def',
+  id: '2', code: 'def', platform: 'threads', permalink: 'https://www.threads.com/@zuck/post/def',
   author: { username: 'zuck', displayName: 'Mark', avatarUrl: 'https://x/a.jpg', verified: false },
   text: 'second in thread', createdAt: Math.floor(Date.now() / 1000),
   media: [], stats: { likes: 0, replies: 0, reposts: 0, shares: 0 }, chain: [],

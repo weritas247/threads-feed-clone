@@ -4,7 +4,7 @@ import { Feed } from './Feed';
 import type { Post } from '@/lib/types';
 
 const mk = (id: string, text: string): Post => ({
-  id, code: id,
+  id, code: id, platform: 'threads', permalink: `https://www.threads.com/@u/post/${id}`,
   author: { username: 'u' + id, displayName: 'U', avatarUrl: 'https://x/a.jpg', verified: false },
   text, createdAt: 1, media: [], stats: { likes: 0, replies: 0, reposts: 0, shares: 0 }, chain: [],
 });

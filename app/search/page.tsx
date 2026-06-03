@@ -43,12 +43,15 @@ export default async function SearchPage({
             <div className="border-b border-border px-4 py-2">
               {accounts.map((a) => (
                 <Link
-                  key={a.username}
-                  href={`/@${a.username}`}
+                  key={`${a.platform}:${a.username}`}
+                  href={a.platform === 'x' ? `/x/${a.username}` : `/@${a.username}`}
                   className="flex items-center gap-2 py-1.5 text-fg hover:underline"
                 >
                   <AccountIcon src={a.avatarUrl} username={a.username} size={28} />
                   <Highlight text={a.username} terms={terms} />
+                  <span className="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-secondary">
+                    {a.platform === 'x' ? 'X' : 'Threads'}
+                  </span>
                 </Link>
               ))}
             </div>

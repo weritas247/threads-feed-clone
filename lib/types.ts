@@ -1,3 +1,5 @@
+export type Platform = 'threads' | 'x';
+
 export interface Author {
   username: string;
   displayName: string;
@@ -22,7 +24,9 @@ export interface Stats {
 
 export interface Post {
   id: string;
-  code: string;          // permalink slug
+  code: string;          // permalink slug / status id
+  platform: Platform;
+  permalink: string;     // canonical URL on the source platform
   author: Author;
   text: string;
   createdAt: number;     // unix seconds

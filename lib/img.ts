@@ -3,7 +3,7 @@
 // own server (`/api/img`), which fetches them server-side (no CORP enforcement) and
 // re-serves them same-origin.
 
-const ALLOWED_HOST = /(^|\.)cdninstagram\.com$|(^|\.)fbcdn\.net$/;
+const ALLOWED_HOST = /(^|\.)cdninstagram\.com$|(^|\.)fbcdn\.net$|(^|\.)twimg\.com$/;
 
 export function isAllowedImageHost(url: string): boolean {
   try {

@@ -4,7 +4,7 @@ import { PostCard } from './PostCard';
 import type { Post } from '@/lib/types';
 
 const post: Post = {
-  id: '1', code: 'abc',
+  id: '1', code: 'abc', platform: 'threads', permalink: 'https://www.threads.com/@zuck/post/abc',
   author: { username: 'zuck', displayName: 'Mark', avatarUrl: 'https://x/a.jpg', verified: true },
   text: 'hello threads', createdAt: Math.floor(Date.now() / 1000) - 3600,
   media: [], stats: { likes: 5, replies: 1, reposts: 0, shares: 0 }, chain: [],

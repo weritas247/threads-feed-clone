@@ -10,7 +10,7 @@ import {
   recordCrawl,
   setAvatar,
   accountsMissingAvatar,
-  enabledUsernames,
+  enabledAccounts,
 } from './accountStore';
 
 beforeEach(() => {
@@ -19,38 +19,48 @@ beforeEach(() => {
 });
 
 describe('accountStore', () => {
-  it('seeds from config on first read with all enabled', () => {
+  it('seeds from config on first read with all enabled threads accounts', () => {
     const list = getAccounts();
     expect(list.length).toBeGreaterThan(0);
     expect(list.every((a) => a.enabled)).toBe(true);
+    expect(list.every((a) => a.platform === 'threads')).toBe(true);
   });
 
-  it('adds a new account (normalized, @-stripped, lowercased) without duplicates', () => {
+  it('adds a new account (normalized) without duplicates', () => {
     const before = getAccounts().length;
-    addAccount('@New_Account');
-    addAccount('new_account'); // duplicate after normalization
+    addAccount('@New_Account', 'threads');
+    addAccount('new_account', 'threads'); // duplicate after normalization
     const list = getAccounts();
     expect(list.length).toBe(before + 1);
     expect(list.some((a) => a.username === 'new_account')).toBe(true);
   });
 
-  it('removes an account', () => {
-    addAccount('temp_acct');
-    removeAccount('temp_acct');
-    expect(getAccounts().some((a) => a.username === 'temp_acct')).toBe(false);
+  it('treats the same handle on different platforms as distinct accounts', () => {
+    addAccount('nasa', 'threads');
+    addAccount('nasa', 'x');
+    const nasas = getAccounts().filter((a) => a.username === 'nasa');
+    expect(nasas.map((a) => a.platform).sort()).toEqual(['threads', 'x']);
   });
 
-  it('toggles enabled and reflects it in enabledUsernames', () => {
-    addAccount('toggle_me');
-    setEnabled('toggle_me', false);
+  it('removes only the matching (username, platform)', () => {
+    addAccount('dup', 'threads');
+    addAccount('dup', 'x');
+    removeAccount('dup', 'threads');
+    const left = getAccounts().filter((a) => a.username === 'dup');
+    expect(left.map((a) => a.platform)).toEqual(['x']);
+  });
+
+  it('toggles enabled and reflects it in enabledAccounts', () => {
+    addAccount('toggle_me', 'x');
+    setEnabled('toggle_me', 'x', false);
     expect(getAccounts().find((a) => a.username === 'toggle_me')?.enabled).toBe(false);
-    expect(enabledUsernames()).not.toContain('toggle_me');
+    expect(enabledAccounts().some((a) => a.username === 'toggle_me')).toBe(false);
   });
 
   it('records a crawl result (incl. avatar) on the matching account', () => {
-    addAccount('crawled');
-    recordCrawl('crawled', 'ok', 7, 1700000000000, 'https://cdn/a.jpg');
-    const a = getAccounts().find((x) => x.username === 'crawled');
+    addAccount('crawled', 'x');
+    recordCrawl('crawled', 'x', 'ok', 7, 1700000000000, 'https://cdn/a.jpg');
+    const a = getAccounts().find((x) => x.username === 'crawled' && x.platform === 'x');
     expect(a?.lastStatus).toBe('ok');
     expect(a?.lastCount).toBe(7);
     expect(a?.lastCrawledAt).toBe(1700000000000);
@@ -58,17 +68,17 @@ describe('accountStore', () => {
   });
 
   it('preserves a previously stored avatar when a later crawl omits it', () => {
-    addAccount('keepav');
-    recordCrawl('keepav', 'ok', 1, 1, 'https://cdn/keep.jpg');
-    recordCrawl('keepav', 'blocked', 0, 2); // no avatar this time
+    addAccount('keepav', 'threads');
+    recordCrawl('keepav', 'threads', 'ok', 1, 1, 'https://cdn/keep.jpg');
+    recordCrawl('keepav', 'threads', 'blocked', 0, 2); // no avatar this time
     expect(getAccounts().find((x) => x.username === 'keepav')?.avatarUrl).toBe('https://cdn/keep.jpg');
   });
 
   it('sets an avatar without a crawl and tracks which accounts still lack one', () => {
-    addAccount('avtest');
-    expect(accountsMissingAvatar()).toContain('avtest');
-    setAvatar('avtest', 'https://cdn/av.jpg');
+    addAccount('avtest', 'threads');
+    expect(accountsMissingAvatar().some((a) => a.username === 'avtest')).toBe(true);
+    setAvatar('avtest', 'threads', 'https://cdn/av.jpg');
     expect(getAccounts().find((x) => x.username === 'avtest')?.avatarUrl).toBe('https://cdn/av.jpg');
-    expect(accountsMissingAvatar()).not.toContain('avtest');
+    expect(accountsMissingAvatar().some((a) => a.username === 'avtest')).toBe(false);
   });
 });

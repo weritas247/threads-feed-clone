@@ -1,4 +1,5 @@
 import type { Author, Media, Post, Stats } from './types';
+import { threadPostUrl } from './links';
 
 export function extractJsonScripts(html: string): string[] {
   const re = /<script[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/g;
@@ -82,10 +83,14 @@ function mapStats(p: RawPost): Stats {
 
 function mapPost(p: RawPost): Post | null {
   if (!p.pk && !p.id) return null;
+  const author = mapAuthor(p.user);
+  const code = p.code ?? '';
   return {
     id: String(p.pk ?? p.id),
-    code: p.code ?? '',
-    author: mapAuthor(p.user),
+    code,
+    platform: 'threads',
+    permalink: threadPostUrl(author.username, code),
+    author,
     text: p.caption?.text ?? '',
     createdAt: p.taken_at ?? 0,
     media: buildMedia(p),

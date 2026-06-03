@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { Post } from '@/lib/types';
 import { relativeTime } from '@/lib/format';
-import { threadPostUrl } from '@/lib/links';
 import { Avatar } from './Avatar';
 import { VerifiedBadge } from './VerifiedBadge';
 import { MoreIcon } from './icons';
@@ -29,11 +28,11 @@ export function PostCard({ post, highlight }: { post: Post; highlight?: string[]
             ·{' '}
             {post.code ? (
               <a
-                href={threadPostUrl(post.author.username, post.code)}
+                href={post.permalink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
-                title="View on Threads"
+                title="View original"
               >
                 <time>{relativeTime(post.createdAt)}</time>
               </a>
@@ -41,14 +40,17 @@ export function PostCard({ post, highlight }: { post: Post; highlight?: string[]
               <time>{relativeTime(post.createdAt)}</time>
             )}
           </span>
+          <span className="ml-2 rounded bg-elevated px-1.5 py-0.5 text-[11px] font-normal text-secondary">
+            {post.platform === 'x' ? 'X' : 'Threads'}
+          </span>
           {post.code && (
             <a
-              href={threadPostUrl(post.author.username, post.code)}
+              href={post.permalink}
               target="_blank"
               rel="noopener noreferrer"
               className="ml-auto text-secondary hover:text-fg"
-              aria-label="Open on Threads"
-              title="Open on Threads"
+              aria-label="Open original"
+              title="Open original"
             >
               <MoreIcon />
             </a>

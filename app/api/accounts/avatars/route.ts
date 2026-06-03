@@ -1,5 +1,5 @@
 import { accountsMissingAvatar, setAvatar, getAccounts } from '@/lib/accountStore';
-import { fetchProfileAvatar } from '@/lib/threads';
+import { fetchAvatar } from '@/lib/feeds';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,10 +8,10 @@ export const dynamic = 'force-dynamic';
 export async function POST(): Promise<Response> {
   const missing = accountsMissingAvatar();
   const resolved = await Promise.all(
-    missing.map(async (username) => ({ username, url: await fetchProfileAvatar(username) })),
+    missing.map(async (a) => ({ ...a, url: await fetchAvatar(a.platform, a.username) })),
   );
-  for (const { username, url } of resolved) {
-    if (url) setAvatar(username, url);
+  for (const { username, platform, url } of resolved) {
+    if (url) setAvatar(username, platform, url);
   }
   return Response.json(getAccounts());
 }

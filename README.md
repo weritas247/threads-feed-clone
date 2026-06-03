@@ -1,17 +1,24 @@
-# Threads Feed Clone
+# Social Feed Clone (Threads + X)
 
-A Next.js app that scrapes public Threads accounts and renders their feed with a
-Threads-identical UI: an aggregated home feed across a configured account list,
-plus a per-account view, with a dark/light theme toggle.
+A Next.js app that scrapes public **Threads** and **X (Twitter)** accounts and
+renders their feed with a Threads-identical UI: an aggregated home feed across a
+configured account list, plus per-account views, with a dark/light theme toggle.
 
 ## How it works
 
-`lib/threads.ts` fetches `https://www.threads.com/@<username>` server-side with
-browser-like headers, and `lib/parse.ts` extracts post data from the embedded
-`<script type="application/json">` blocks, normalizing to the domain types in
-`lib/types.ts`. The scraper is the only source-specific module — the UI consumes
-only normalized `Post` objects, so the data source can be swapped without touching
-any component.
+Each platform has one source-specific scraper that normalizes to the shared `Post`
+type in `lib/types.ts`; `lib/feeds.ts` dispatches by platform. The rest of the app
+(UI, management, crawling, storage, search) is platform-agnostic.
+
+- **Threads** — `lib/threads.ts` fetches `https://www.threads.com/@<username>`
+  server-side and `lib/parse.ts` extracts post data from the embedded
+  `<script type="application/json">` blocks.
+- **X** — `lib/x.ts` fetches the public embed timeline
+  (`syndication.twitter.com/srv/timeline-profile/screen-name/<user>`) and parses
+  its `__NEXT_DATA__`. No login required.
+
+The UI consumes only normalized `Post` objects, so a source can be swapped or added
+without touching any component. Per-account routes: `/@<user>` (Threads), `/x/<user>` (X).
 
 - **Home (`/`)** — scrapes every account in `config/accounts.ts` concurrently,
   skips any that fail, merges all posts and sorts newest-first.

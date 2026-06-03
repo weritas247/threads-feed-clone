@@ -8,6 +8,8 @@ import type { Post } from './types';
 const mk = (id: string, createdAt: number, text = 't'): Post => ({
   id,
   code: id,
+  platform: 'threads',
+  permalink: `https://www.threads.com/@acct/post/${id}`,
   author: { username: 'acct', displayName: 'A', avatarUrl: 'https://x/a.jpg', verified: false },
   text,
   createdAt,
@@ -22,33 +24,34 @@ beforeEach(() => {
 
 describe('postStore', () => {
   it('returns empty for an account with no saved posts', () => {
-    expect(getSavedPosts('nobody')).toEqual([]);
+    expect(getSavedPosts('nobody', 'threads')).toEqual([]);
   });
 
   it('saves posts and reads them back newest-first', () => {
-    const total = savePosts('acct', [mk('1', 100), mk('2', 300), mk('3', 200)]);
+    const total = savePosts('acct', 'threads', [mk('1', 100), mk('2', 300), mk('3', 200)]);
     expect(total).toBe(3);
-    const saved = getSavedPosts('acct');
+    const saved = getSavedPosts('acct', 'threads');
     expect(saved.map((p) => p.id)).toEqual(['2', '3', '1']);
   });
 
   it('accumulates across crawls and dedupes by id (new data wins)', () => {
-    savePosts('acct', [mk('1', 100, 'old')]);
-    const total = savePosts('acct', [mk('1', 100, 'new'), mk('2', 200)]);
+    savePosts('acct', 'threads', [mk('1', 100, 'old')]);
+    const total = savePosts('acct', 'threads', [mk('1', 100, 'new'), mk('2', 200)]);
     expect(total).toBe(2);
-    const saved = getSavedPosts('acct');
+    const saved = getSavedPosts('acct', 'threads');
     expect(saved.find((p) => p.id === '1')?.text).toBe('new');
   });
 
-  it('isolates posts per account and tolerates @/case in the handle', () => {
-    savePosts('@Acct', [mk('1', 100)]);
-    expect(getSavedPosts('acct').length).toBe(1);
-    expect(getSavedPosts('other').length).toBe(0);
+  it('isolates posts per account/platform and tolerates @/case', () => {
+    savePosts('@Acct', 'threads', [mk('1', 100)]);
+    expect(getSavedPosts('acct', 'threads').length).toBe(1);
+    expect(getSavedPosts('acct', 'x').length).toBe(0); // same handle, different platform
+    expect(getSavedPosts('other', 'threads').length).toBe(0);
   });
 
-  it('getAllSavedPosts merges every account newest-first', () => {
-    savePosts('acctA', [mk('1', 100), mk('3', 300)]);
-    savePosts('acctB', [mk('2', 200)]);
+  it('getAllSavedPosts merges every account/platform newest-first', () => {
+    savePosts('acctA', 'threads', [mk('1', 100), mk('3', 300)]);
+    savePosts('acctB', 'x', [mk('2', 200)]);
     const all = getAllSavedPosts();
     expect(all.map((p) => p.id)).toEqual(['3', '2', '1']);
   });

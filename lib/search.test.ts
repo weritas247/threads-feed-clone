@@ -5,6 +5,8 @@ import type { Post } from './types';
 const mk = (id: string, text: string, username = 'acct', displayName = 'Account'): Post => ({
   id,
   code: id,
+  platform: 'threads',
+  permalink: `https://www.threads.com/@${username}/post/${id}`,
   author: { username, displayName, avatarUrl: 'https://x/a.jpg', verified: false },
   text,
   createdAt: Number(id),
