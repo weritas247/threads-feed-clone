@@ -32,6 +32,14 @@ describe('fetchAccountFeed', () => {
     expect(res).toEqual({ ok: false, reason: 'parse_error' });
   });
 
+  it('returns private when a postless page carries the private flag', async () => {
+    const privateHtml =
+      '<html><script type="application/json">{"user":{"text_post_app_is_private":true}}</script></html>';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(privateHtml, { status: 200 })));
+    const res = await fetchAccountFeed('someone');
+    expect(res).toEqual({ ok: false, reason: 'private' });
+  });
+
   it('strips a leading @ from the username in the URL', async () => {
     const spy = vi.fn(async () => new Response(html, { status: 200 }));
     vi.stubGlobal('fetch', spy);

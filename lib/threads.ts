@@ -30,6 +30,10 @@ export async function fetchAccountFeed(username: string): Promise<ScrapeResult> 
   if (!res.ok) return { ok: false, reason: 'blocked' };
   const html = await res.text();
   const posts = parseProfileHtml(html, handle);
-  if (posts.length === 0) return { ok: false, reason: 'parse_error' };
+  if (posts.length === 0) {
+    // A private profile renders no posts but still embeds the owner's private flag.
+    if (/"text_post_app_is_private":\s*true/.test(html)) return { ok: false, reason: 'private' };
+    return { ok: false, reason: 'parse_error' };
+  }
   return { ok: true, posts };
 }

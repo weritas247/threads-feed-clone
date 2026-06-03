@@ -1,15 +1,16 @@
 import Image from 'next/image';
 import type { Media } from '@/lib/types';
+import { proxied } from '@/lib/img';
 
 function Item({ m }: { m: Media }) {
   if (m.type === 'video') {
     return (
-      <video src={m.url} controls playsInline className="h-full w-full rounded-[8px] object-cover" />
+      <video src={proxied(m.url)} controls playsInline className="h-full w-full rounded-[8px] object-cover" />
     );
   }
   return (
     <Image
-      src={m.url}
+      src={proxied(m.url)}
       alt={m.alt ?? ''}
       width={m.width || 500}
       height={m.height || 500}
