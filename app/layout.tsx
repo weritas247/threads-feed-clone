@@ -17,7 +17,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto min-h-screen max-w-[640px] border-x border-border bg-bg">
             <header className="sticky top-0 z-10 flex items-center justify-between bg-bg/80 px-4 py-3 backdrop-blur">
               <Link href="/" className="text-lg font-bold text-fg">Threads</Link>
-              <ThemeToggle />
+              <div className="flex items-center gap-1">
+                <Link href="/manage" className="rounded-full px-3 py-1.5 text-sm text-fg hover:bg-elevated">
+                  Manage
+                </Link>
+                <ThemeToggle />
+              </div>
             </header>
             <main>{children}</main>
           </div>

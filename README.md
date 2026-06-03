@@ -27,7 +27,22 @@ any component.
     npm test         # vitest
     npm run build
 
+## Crawl management (`/manage`)
+
+A management tab to control crawling without editing code:
+
+- Add / remove accounts and toggle each on/off (only enabled accounts appear in the
+  home feed).
+- Run a crawl per account, or "Crawl all enabled", and see each account's last
+  status (OK / Private / Not found / Blocked / Parse error), post count, and time.
+
+State is persisted to `data/accounts.json` (a file, no database; git-ignored and
+seeded from `config/accounts.ts` on first run). The relevant pieces:
+`lib/accountStore.ts` (storage), `app/api/accounts` + `app/api/crawl` (actions),
+`components/ManageClient.tsx` (UI).
+
 ## Configure accounts
 
-Edit `config/accounts.ts` to change which accounts appear in the aggregated feed.
-Visit `/@<username>` for any single public account.
+The initial account list lives in `config/accounts.ts` (used to seed the store).
+After first run, manage accounts from `/manage`. Visit `/@<username>` for any single
+public account.

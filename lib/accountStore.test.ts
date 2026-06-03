@@ -1,0 +1,56 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  getAccounts,
+  addAccount,
+  removeAccount,
+  setEnabled,
+  recordCrawl,
+  enabledUsernames,
+} from './accountStore';
+
+beforeEach(() => {
+  // Fresh isolated data dir per test so seeding/writes don't leak between tests.
+  process.env.ACCOUNTS_DATA_DIR = mkdtempSync(join(tmpdir(), 'accts-'));
+});
+
+describe('accountStore', () => {
+  it('seeds from config on first read with all enabled', () => {
+    const list = getAccounts();
+    expect(list.length).toBeGreaterThan(0);
+    expect(list.every((a) => a.enabled)).toBe(true);
+  });
+
+  it('adds a new account (normalized, @-stripped, lowercased) without duplicates', () => {
+    const before = getAccounts().length;
+    addAccount('@New_Account');
+    addAccount('new_account'); // duplicate after normalization
+    const list = getAccounts();
+    expect(list.length).toBe(before + 1);
+    expect(list.some((a) => a.username === 'new_account')).toBe(true);
+  });
+
+  it('removes an account', () => {
+    addAccount('temp_acct');
+    removeAccount('temp_acct');
+    expect(getAccounts().some((a) => a.username === 'temp_acct')).toBe(false);
+  });
+
+  it('toggles enabled and reflects it in enabledUsernames', () => {
+    addAccount('toggle_me');
+    setEnabled('toggle_me', false);
+    expect(getAccounts().find((a) => a.username === 'toggle_me')?.enabled).toBe(false);
+    expect(enabledUsernames()).not.toContain('toggle_me');
+  });
+
+  it('records a crawl result on the matching account', () => {
+    addAccount('crawled');
+    recordCrawl('crawled', 'ok', 7, 1700000000000);
+    const a = getAccounts().find((x) => x.username === 'crawled');
+    expect(a?.lastStatus).toBe('ok');
+    expect(a?.lastCount).toBe(7);
+    expect(a?.lastCrawledAt).toBe(1700000000000);
+  });
+});
