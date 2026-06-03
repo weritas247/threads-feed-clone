@@ -18,6 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <header className="sticky top-0 z-10 flex items-center justify-between bg-bg/80 px-4 py-3 backdrop-blur">
               <Link href="/" className="text-lg font-bold text-fg">Threads</Link>
               <div className="flex items-center gap-1">
+                <Link href="/search" className="rounded-full px-3 py-1.5 text-sm text-fg hover:bg-elevated">
+                  Search
+                </Link>
                 <Link href="/manage" className="rounded-full px-3 py-1.5 text-sm text-fg hover:bg-elevated">
                   Manage
                 </Link>

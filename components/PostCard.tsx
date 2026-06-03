@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Post } from '@/lib/types';
 import { relativeTime } from '@/lib/format';
+import { threadPostUrl } from '@/lib/links';
 import { Avatar } from './Avatar';
 import { VerifiedBadge } from './VerifiedBadge';
 import { MoreIcon } from './icons';
@@ -23,8 +24,34 @@ export function PostCard({ post }: { post: Post }) {
             {post.author.username}
           </Link>
           {post.author.verified && <VerifiedBadge />}
-          <span className="text-secondary">· <time>{relativeTime(post.createdAt)}</time></span>
-          <button type="button" className="ml-auto text-secondary"><MoreIcon /></button>
+          <span className="text-secondary">
+            ·{' '}
+            {post.code ? (
+              <a
+                href={threadPostUrl(post.author.username, post.code)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+                title="View on Threads"
+              >
+                <time>{relativeTime(post.createdAt)}</time>
+              </a>
+            ) : (
+              <time>{relativeTime(post.createdAt)}</time>
+            )}
+          </span>
+          {post.code && (
+            <a
+              href={threadPostUrl(post.author.username, post.code)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto text-secondary hover:text-fg"
+              aria-label="Open on Threads"
+              title="Open on Threads"
+            >
+              <MoreIcon />
+            </a>
+          )}
         </div>
         {post.text && <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-[1.4] text-fg">{post.text}</p>}
         <MediaView media={post.media} />

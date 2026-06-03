@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Post } from './types';
 
@@ -30,6 +30,26 @@ export function getSavedPosts(username: string): Post[] {
   } catch {
     return [];
   }
+}
+
+// All saved posts across every account, deduped by id and newest-first.
+export function getAllSavedPosts(): Post[] {
+  let files: string[];
+  try {
+    files = readdirSync(postsDir()).filter((f) => f.endsWith('.json'));
+  } catch {
+    return [];
+  }
+  const byId = new Map<string, Post>();
+  for (const f of files) {
+    try {
+      const arr = JSON.parse(readFileSync(join(postsDir(), f), 'utf8')) as Post[];
+      for (const p of arr) byId.set(p.id, p);
+    } catch {
+      // skip unreadable file
+    }
+  }
+  return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
 }
 
 // Merge `posts` into the saved set (new data wins on id collision), sort

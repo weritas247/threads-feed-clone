@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getSavedPosts, savePosts } from './postStore';
+import { getSavedPosts, savePosts, getAllSavedPosts } from './postStore';
 import type { Post } from './types';
 
 const mk = (id: string, createdAt: number, text = 't'): Post => ({
@@ -44,5 +44,16 @@ describe('postStore', () => {
     savePosts('@Acct', [mk('1', 100)]);
     expect(getSavedPosts('acct').length).toBe(1);
     expect(getSavedPosts('other').length).toBe(0);
+  });
+
+  it('getAllSavedPosts merges every account newest-first', () => {
+    savePosts('acctA', [mk('1', 100), mk('3', 300)]);
+    savePosts('acctB', [mk('2', 200)]);
+    const all = getAllSavedPosts();
+    expect(all.map((p) => p.id)).toEqual(['3', '2', '1']);
+  });
+
+  it('getAllSavedPosts is empty when nothing has been saved', () => {
+    expect(getAllSavedPosts()).toEqual([]);
   });
 });

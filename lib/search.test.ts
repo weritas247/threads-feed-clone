@@ -1,0 +1,36 @@
+import { describe, it, expect } from 'vitest';
+import { searchPosts } from './search';
+import type { Post } from './types';
+
+const mk = (id: string, text: string, username = 'acct', displayName = 'Account'): Post => ({
+  id,
+  code: id,
+  author: { username, displayName, avatarUrl: 'https://x/a.jpg', verified: false },
+  text,
+  createdAt: Number(id),
+  media: [],
+  stats: { likes: 0, replies: 0, reposts: 0, shares: 0 },
+  chain: [],
+});
+
+const posts = [
+  mk('1', 'Learning about Claude Code today', 'gptaku_ai', '지피타쿠'),
+  mk('2', 'A post about midjourney prompts', 'promppy_com', 'Promppy'),
+  mk('3', 'unrelated content', 'someone', 'Someone'),
+];
+
+describe('searchPosts', () => {
+  it('returns [] for an empty query', () => {
+    expect(searchPosts(posts, '   ')).toEqual([]);
+  });
+  it('matches post body case-insensitively', () => {
+    expect(searchPosts(posts, 'claude').map((p) => p.id)).toEqual(['1']);
+  });
+  it('matches username and display name', () => {
+    expect(searchPosts(posts, 'promppy').map((p) => p.id)).toEqual(['2']);
+    expect(searchPosts(posts, '지피타쿠').map((p) => p.id)).toEqual(['1']);
+  });
+  it('returns nothing when there is no match', () => {
+    expect(searchPosts(posts, 'zzznope')).toEqual([]);
+  });
+});
