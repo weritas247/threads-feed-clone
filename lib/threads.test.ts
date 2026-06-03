@@ -36,6 +36,6 @@ describe('fetchAccountFeed', () => {
     const spy = vi.fn(async () => new Response(html, { status: 200 }));
     vi.stubGlobal('fetch', spy);
     await fetchAccountFeed('@autogod.ai');
-    expect(spy.mock.calls[0][0]).toBe('https://www.threads.com/@autogod.ai');
+    expect((spy.mock.calls as unknown[][])[0][0]).toBe('https://www.threads.com/@autogod.ai');
   });
 });
