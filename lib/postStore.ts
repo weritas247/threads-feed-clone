@@ -1,6 +1,17 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Platform, Post } from './types';
+import { threadPostUrl, xPostUrl } from './links';
+
+// Backfill platform/permalink for posts saved before those fields existed. The
+// platform comes from the file the post was read from; permalink is derived.
+function hydrate(p: Post, platform: Platform): Post {
+  const plat = p.platform ?? platform;
+  const permalink =
+    p.permalink ??
+    (plat === 'x' ? xPostUrl(p.author.username, p.code) : threadPostUrl(p.author.username, p.code));
+  return { ...p, platform: plat, permalink };
+}
 
 // File-backed store for crawled posts. Each account's posts accumulate across
 // crawls in data/posts/<platform>_<username>.json, deduplicated by post id and
@@ -26,7 +37,7 @@ export function getSavedPosts(username: string, platform: Platform): Post[] {
   const file = fileFor(username, platform);
   if (!existsSync(file)) return [];
   try {
-    return JSON.parse(readFileSync(file, 'utf8')) as Post[];
+    return (JSON.parse(readFileSync(file, 'utf8')) as Post[]).map((p) => hydrate(p, platform));
   } catch {
     return [];
   }
@@ -42,9 +53,13 @@ export function getAllSavedPosts(): Post[] {
   }
   const byId = new Map<string, Post>();
   for (const f of files) {
+    const platform: Platform = f.startsWith('x_') ? 'x' : 'threads';
     try {
       const arr = JSON.parse(readFileSync(join(postsDir(), f), 'utf8')) as Post[];
-      for (const p of arr) byId.set(p.id, p);
+      for (const raw of arr) {
+        const p = hydrate(raw, platform);
+        byId.set(`${p.platform}:${p.id}`, p);
+      }
     } catch {
       // skip unreadable file
     }
