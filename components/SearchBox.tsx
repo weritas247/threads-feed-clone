@@ -10,8 +10,14 @@ export function SearchBox({ initial = '' }: { initial?: string }) {
   const skipFirst = useRef(true);
 
   function go(value: string) {
-    const query = value.trim();
-    router.replace(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+    const v = value.trim();
+    // A leading # searches post tags instead of text.
+    if (v.startsWith('#')) {
+      const t = v.slice(1).trim().toLowerCase();
+      router.replace(t ? `/search?tag=${encodeURIComponent(t)}` : '/search');
+      return;
+    }
+    router.replace(v ? `/search?q=${encodeURIComponent(v)}` : '/search');
   }
 
   // Live search: debounce navigation as the user types (no Enter needed).
@@ -39,7 +45,7 @@ export function SearchBox({ initial = '' }: { initial?: string }) {
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search posts and accounts"
+        placeholder="Search posts, accounts, or #tags"
         aria-label="Search"
         autoFocus
         className="w-full rounded-lg border border-border bg-elevated px-3 py-2 pr-9 text-sm text-fg outline-none placeholder:text-secondary"

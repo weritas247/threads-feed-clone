@@ -1,37 +1,91 @@
 import Link from 'next/link';
 import { getAllSavedPosts } from '@/lib/postStore';
+import { bookmarkedKeys } from '@/lib/bookmarkStore';
+import { getTagMap, allPostTags, tagCounts, keysWithTag } from '@/lib/postTagStore';
+import { getNoteMap } from '@/lib/postNoteStore';
 import { searchPosts, tokenize, accountMatches } from '@/lib/search';
 import { getAccounts } from '@/lib/accountStore';
 import { Feed } from '@/components/Feed';
+import { FeedSummary } from '@/components/FeedSummary';
 import { SearchBox } from '@/components/SearchBox';
 import { AccountIcon } from '@/components/AccountIcon';
 import { Highlight } from '@/components/Highlight';
+import type { Post } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; tag?: string }>;
 }) {
-  const { q = '' } = await searchParams;
+  const { q = '', tag = '' } = await searchParams;
   const query = q.trim();
+  const activeTag = tag.trim().toLowerCase();
   const terms = tokenize(query);
 
-  const posts = query ? searchPosts(getAllSavedPosts(), query) : [];
-  const accounts = query
-    ? getAccounts().filter((a) => accountMatches(a.username, a.username, query))
-    : [];
+  const tagMap = getTagMap();
+  const noteMap = getNoteMap();
+  const savedKeys = [...bookmarkedKeys()];
+  const counts = tagCounts();
+  const tags = allPostTags();
+
+  // Tag search takes precedence: every post carrying #activeTag, across all feeds.
+  let posts: Post[] = [];
+  let accounts: ReturnType<typeof getAccounts> = [];
+  if (activeTag) {
+    const keys = keysWithTag(activeTag);
+    posts = getAllSavedPosts().filter((p) => keys.has(`${p.platform}:${p.id}`));
+  } else if (query) {
+    // Notes are searchable too — a query matches a post's text, author, tags, or memo.
+    posts = searchPosts(getAllSavedPosts(), query, noteMap);
+    accounts = getAccounts().filter((a) => accountMatches(a.username, a.username, query));
+  }
+
+  function tagChip(t: string) {
+    const on = activeTag === t;
+    return (
+      <Link
+        key={t}
+        href={`/search?tag=${encodeURIComponent(t)}`}
+        className={
+          'rounded-full border px-3 py-1 text-xs ' +
+          (on ? 'border-fg bg-fg text-bg' : 'border-border text-secondary hover:text-fg')
+        }
+      >
+        #{t} <span className="opacity-60">{counts[t]}</span>
+      </Link>
+    );
+  }
 
   return (
     <>
       <div className="px-4 pt-4">
-        <SearchBox initial={query} />
+        <SearchBox initial={activeTag ? `#${activeTag}` : query} />
       </div>
 
-      {!query ? (
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 border-b border-border px-4 py-2">{tags.map(tagChip)}</div>
+      )}
+
+      {activeTag ? (
+        <>
+          <p className="px-4 pt-3 text-sm text-secondary">
+            {posts.length} {posts.length === 1 ? 'post' : 'posts'} tagged{' '}
+            <span className="text-fg">#{activeTag}</span>
+          </p>
+          {posts.length > 0 ? (
+            <>
+              <FeedSummary posts={posts} />
+              <Feed posts={posts} savedKeys={savedKeys} tagMap={tagMap} noteMap={noteMap} />
+            </>
+          ) : (
+            <p className="px-4 py-16 text-center text-secondary">No posts tagged #{activeTag} yet.</p>
+          )}
+        </>
+      ) : !query ? (
         <p className="px-4 py-16 text-center text-secondary">
-          Search saved posts and accounts.
+          Search posts and accounts, or pick a #tag above.
         </p>
       ) : (
         <>
@@ -58,7 +112,10 @@ export default async function SearchPage({
           )}
 
           {posts.length > 0 ? (
-            <Feed posts={posts} highlight={terms} />
+            <>
+              <FeedSummary posts={posts} />
+              <Feed posts={posts} highlight={terms} savedKeys={savedKeys} tagMap={tagMap} noteMap={noteMap} />
+            </>
           ) : (
             <p className="px-4 py-16 text-center text-secondary">
               No saved posts match. Crawl accounts from the manage tab to build the

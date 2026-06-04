@@ -9,21 +9,25 @@ function chip(active: boolean): string {
   );
 }
 
-// Tag/VIP filter chips for the home feed. Links preserve the active platform tab.
+// Account-tag / VIP filter chips for the home feed. Links preserve the active platform
+// tab and any active post-tag filter (`ptag`).
 export function TagBar({
   tab,
   tags,
   activeTag,
   vip,
+  ptag,
 }: {
   tab: string;
   tags: string[];
   activeTag?: string;
   vip: boolean;
+  ptag?: string;
 }) {
   function href(extra: Record<string, string>): string {
     const p = new URLSearchParams();
     if (tab !== 'all') p.set('tab', tab);
+    if (ptag) p.set('ptag', ptag);
     for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
     const s = p.toString();
     return s ? `/?${s}` : '/';

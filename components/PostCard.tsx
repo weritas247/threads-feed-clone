@@ -7,9 +7,23 @@ import { MoreIcon } from './icons';
 import { MediaView } from './Media';
 import { ActionBar } from './ActionBar';
 import { ThreadChain } from './ThreadChain';
+import { PostTags } from './PostTags';
+import { PostNote } from './PostNote';
 import { Highlight } from './Highlight';
 
-export function PostCard({ post, highlight }: { post: Post; highlight?: string[] }) {
+export function PostCard({
+  post,
+  highlight,
+  saved,
+  tags,
+  note,
+}: {
+  post: Post;
+  highlight?: string[];
+  saved?: boolean;
+  tags?: string[];
+  note?: string;
+}) {
   return (
     <article className="flex gap-3 border-b border-border px-4 py-3">
       <div className="flex flex-col items-center">
@@ -62,7 +76,9 @@ export function PostCard({ post, highlight }: { post: Post; highlight?: string[]
           </p>
         )}
         <MediaView media={post.media} />
-        <ActionBar stats={post.stats} />
+        <ActionBar stats={post.stats} post={post} saved={saved} />
+        <PostTags post={post} initialTags={tags} />
+        <PostNote post={post} initialNote={note} />
         <ThreadChain posts={post.chain} highlight={highlight} />
       </div>
     </article>

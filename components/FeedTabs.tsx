@@ -4,6 +4,7 @@ const TABS: { key: string; label: string; href: string }[] = [
   { key: 'all', label: 'All', href: '/' },
   { key: 'threads', label: 'Threads', href: '/?tab=threads' },
   { key: 'x', label: 'X', href: '/?tab=x' },
+  { key: 'saved', label: 'Saved', href: '/saved' },
 ];
 
 export function FeedTabs({ active }: { active: string }) {

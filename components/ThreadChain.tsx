@@ -1,11 +1,30 @@
+'use client';
+
+import { useState } from 'react';
 import type { Post } from '@/lib/types';
 import { Avatar } from './Avatar';
 import { MediaView } from './Media';
 import { ActionBar } from './ActionBar';
 import { Highlight } from './Highlight';
 
+// Self-thread continuation. Collapsed by default so you read the lead post first and
+// decide whether to open the rest of the thread.
 export function ThreadChain({ posts, highlight }: { posts: Post[]; highlight?: string[] }) {
+  const [open, setOpen] = useState(false);
   if (posts.length === 0) return null;
+
+  const toggle = (
+    <button
+      type="button"
+      onClick={() => setOpen((o) => !o)}
+      className="mt-2 text-[13px] font-semibold text-secondary hover:text-fg"
+    >
+      {open ? 'Hide thread' : `Show this thread (${posts.length} more ${posts.length === 1 ? 'post' : 'posts'})`}
+    </button>
+  );
+
+  if (!open) return toggle;
+
   return (
     <div className="mt-1">
       {posts.map((p) => (
@@ -25,6 +44,7 @@ export function ThreadChain({ posts, highlight }: { posts: Post[]; highlight?: s
           </div>
         </div>
       ))}
+      {toggle}
     </div>
   );
 }

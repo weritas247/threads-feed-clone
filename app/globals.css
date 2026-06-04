@@ -10,11 +10,11 @@
   --border: 219 219 219;
 }
 .dark {
-  --bg: 16 16 16;
-  --elevated: 24 24 24;
+  --bg: 30 31 34;
+  --elevated: 43 44 48;
   --fg: 243 245 247;
-  --secondary: 119 119 119;
-  --border: 47 47 47;
+  --secondary: 167 169 174;
+  --border: 60 62 68;
 }
 html, body { padding: 0; margin: 0; }
 body {

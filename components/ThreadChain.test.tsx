@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ThreadChain } from './ThreadChain';
 import type { Post } from '@/lib/types';
 
@@ -15,8 +15,12 @@ describe('ThreadChain', () => {
     const { container } = render(<ThreadChain posts={[]} />);
     expect(container.firstChild).toBeNull();
   });
-  it('renders chained post text', () => {
+  it('is collapsed by default and reveals the thread on click', () => {
     render(<ThreadChain posts={[child]} />);
+    // collapsed: lead-post-first, chain hidden behind a toggle
+    expect(screen.queryByText('second in thread')).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: /show this thread/i });
+    fireEvent.click(toggle);
     expect(screen.getByText('second in thread')).toBeInTheDocument();
   });
 });

@@ -29,6 +29,37 @@ export function ShareIcon({ className }: P) {
     </svg>
   );
 }
+export function SparkleIcon({ className }: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className ?? base}>
+      <path d="M12 3l1.7 6.3L20 11l-6.3 1.7L12 19l-1.7-6.3L4 11l6.3-1.7z" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+export function BookmarkIcon({ className, filled }: P & { filled?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" className={className ?? base}>
+      <path d="M6 3.5h12c.55 0 1 .45 1 1V21l-7-3.2L5 21V4.5c0-.55.45-1 1-1z" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+export function NoteIcon({ className }: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className ?? base}>
+      <path d="M5 4h14a1 1 0 0 1 1 1v10l-5 5H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" strokeLinejoin="round" strokeLinecap="round" />
+      <path d="M20 15h-4a1 1 0 0 0-1 1v4" strokeLinejoin="round" strokeLinecap="round" />
+      <path d="M8 9h8M8 12.5h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+export function TagIcon({ className }: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className ?? base}>
+      <path d="M3 11.5V4.5a1 1 0 0 1 1-1h7l9 9-8 8-9-9z" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx="7.5" cy="7.5" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 export function MoreIcon({ className }: P) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className ?? 'h-5 w-5'}>

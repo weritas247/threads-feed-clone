@@ -99,16 +99,10 @@ function mapPost(p: RawPost): Post | null {
   };
 }
 
-// A profile page also embeds recommended/related threads from OTHER accounts.
-// When `username` is provided, keep only threads whose lead post is by that account.
-export function parseProfileHtml(html: string, username?: string): Post[] {
-  const wanted = username ? username.trim().replace(/^@+/, '').toLowerCase() : null;
-  const threads: RawThread[] = [];
-  for (const block of extractJsonScripts(html)) {
-    let data: unknown;
-    try { data = JSON.parse(block); } catch { continue; }
-    collectThreads(data, threads);
-  }
+// Turn the collected raw threads into normalized Posts: lead post + self-chain,
+// deduped by id and newest-first. When `wanted` is set, keep only threads whose
+// lead post is by that account (a profile page embeds recommendations too).
+function buildPosts(threads: RawThread[], wanted: string | null): Post[] {
   const byId = new Map<string, Post>();
   for (const thread of threads) {
     const items = (thread.thread_items ?? []).map((i) => i.post).filter((p): p is RawPost => !!p);
@@ -120,4 +114,27 @@ export function parseProfileHtml(html: string, username?: string): Post[] {
     if (!byId.has(lead.id)) byId.set(lead.id, lead);
   }
   return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
+}
+
+// Extract posts from already-parsed JSON (e.g. a Threads API response captured by
+// the Saved bookmarklet) by walking it for `thread_items`. No HTML involved.
+// Without a username, keeps posts from every author — Saved spans many accounts.
+export function collectPostsFromData(data: unknown, username?: string): Post[] {
+  const wanted = username ? username.trim().replace(/^@+/, '').toLowerCase() : null;
+  const threads: RawThread[] = [];
+  collectThreads(data, threads);
+  return buildPosts(threads, wanted);
+}
+
+// A profile page also embeds recommended/related threads from OTHER accounts.
+// When `username` is provided, keep only threads whose lead post is by that account.
+export function parseProfileHtml(html: string, username?: string): Post[] {
+  const wanted = username ? username.trim().replace(/^@+/, '').toLowerCase() : null;
+  const threads: RawThread[] = [];
+  for (const block of extractJsonScripts(html)) {
+    let data: unknown;
+    try { data = JSON.parse(block); } catch { continue; }
+    collectThreads(data, threads);
+  }
+  return buildPosts(threads, wanted);
 }

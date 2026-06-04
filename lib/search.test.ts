@@ -42,6 +42,14 @@ describe('searchPosts', () => {
     // one term missing → no match
     expect(searchPosts(posts, 'claude midjourney')).toEqual([]);
   });
+
+  it('matches the post memo when notes are provided', () => {
+    const notes = { 'threads:3': 'remember this banger 꿀팁' };
+    // the word only exists in the note, not the post text/author
+    expect(searchPosts(posts, '꿀팁', notes).map((p) => p.id)).toEqual(['3']);
+    // without notes, no match
+    expect(searchPosts(posts, '꿀팁')).toEqual([]);
+  });
 });
 
 describe('tokenize', () => {

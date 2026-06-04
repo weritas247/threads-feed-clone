@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { AccountEntry, CrawlStatus } from '@/lib/accountStore';
 import type { Platform } from '@/lib/types';
 import { relativeTime } from '@/lib/format';
+import { parseAccountInput } from '@/lib/accountInput';
 import { AccountIcon } from './AccountIcon';
 
 const STATUS_LABEL: Record<CrawlStatus, string> = {
@@ -49,6 +50,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
   const [busy, setBusy] = useState<string | null>(null); // composite key being crawled, or '*all*'
   const [adding, setAdding] = useState(false);
   const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
+  const [platformFilter, setPlatformFilter] = useState<Platform | 'all'>('all');
 
   async function api(path: string, method: string, body?: unknown): Promise<AccountEntry[] | null> {
     const res = await fetch(path, {
@@ -74,11 +76,22 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Accept a bare @handle (uses the dropdown platform) or a pasted profile URL
+  // (platform auto-detected from the host).
+  function onNameChange(value: string) {
+    setNewName(value);
+    const parsed = parseAccountInput(value, newPlatform);
+    if (parsed?.fromUrl) setNewPlatform(parsed.platform);
+  }
+
   async function add() {
-    const name = newName.trim();
-    if (!name) return;
+    const parsed = parseAccountInput(newName, newPlatform);
+    if (!parsed) return;
     setAdding(true);
-    const list = await api('/api/accounts', 'POST', { username: name, platform: newPlatform });
+    const list = await api('/api/accounts', 'POST', {
+      username: parsed.username,
+      platform: parsed.platform,
+    });
     if (list) {
       setAccounts(list);
       setNewName('');
@@ -122,8 +135,17 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
 
   const enabledCount = accounts.filter((a) => a.enabled).length;
   const vipCount = accounts.filter((a) => a.vip).length;
+  const threadsCount = accounts.filter((a) => a.platform === 'threads').length;
+  const xCount = accounts.filter((a) => a.platform === 'x').length;
   // VIP accounts pinned to the top (Slack-style), otherwise input order.
   const ordered = [...accounts].sort((a, b) => Number(b.vip) - Number(a.vip));
+  const visible = ordered.filter((a) => platformFilter === 'all' || a.platform === platformFilter);
+
+  const filters: { key: Platform | 'all'; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: accounts.length },
+    { key: 'threads', label: 'Threads', count: threadsCount },
+    { key: 'x', label: 'X', count: xCount },
+  ];
 
   return (
     <div className="px-4 py-4">
@@ -153,9 +175,9 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
         </select>
         <input
           value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          onChange={(e) => onNameChange(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder="Add account (e.g. @zuck)"
+          placeholder="@handle or paste a profile URL"
           className="flex-1 rounded-lg border border-border bg-elevated px-3 py-1.5 text-sm text-fg outline-none placeholder:text-secondary"
         />
         <button
@@ -168,49 +190,79 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
         </button>
       </div>
 
-      <table className="w-full text-sm">
+      <div className="mb-3 flex flex-wrap gap-2">
+        {filters.map((f) => {
+          const on = platformFilter === f.key;
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setPlatformFilter(f.key)}
+              className={
+                'rounded-full border px-3 py-1 text-xs ' +
+                (on ? 'border-fg bg-fg text-bg' : 'border-border text-secondary hover:text-fg')
+              }
+            >
+              {f.label} <span className="opacity-70">{f.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="-mx-4 overflow-x-auto px-4">
+      <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-secondary">
-            <th className="py-2 font-normal" aria-label="VIP" />
-            <th className="py-2 font-normal">On</th>
-            <th className="py-2 font-normal">Account</th>
-            <th className="py-2 font-normal">Status</th>
-            <th className="py-2 text-right font-normal">Posts</th>
-            <th className="py-2 text-right font-normal">Last crawl</th>
-            <th className="py-2" />
+          <tr className="text-left text-[11px] uppercase tracking-wider text-secondary">
+            <th className="border-b border-border px-2 py-2.5 font-medium" aria-label="VIP" />
+            <th className="border-b border-border px-2 py-2.5 font-medium" aria-label="Enabled" />
+            <th className="border-b border-border px-3 py-2.5 font-medium">Account</th>
+            <th className="border-b border-border px-3 py-2.5 font-medium">Status</th>
+            <th className="border-b border-border px-3 py-2.5 text-right font-medium">Posts</th>
+            <th className="whitespace-nowrap border-b border-border px-3 py-2.5 text-right font-medium">
+              Last crawl
+            </th>
+            <th className="border-b border-border px-2 py-2.5" />
           </tr>
         </thead>
         <tbody>
-          {ordered.map((a) => (
-            <tr key={key(a)} className={'border-b border-border ' + (a.vip ? 'bg-yellow-400/5' : '')}>
-              <td className="py-2 pr-1 align-top">
+          {visible.map((a) => (
+            <tr key={key(a)} className={'group ' + (a.vip ? 'bg-yellow-400/5' : 'hover:bg-elevated/40')}>
+              <td className="border-b border-border px-2 py-3 align-top">
                 <button
                   type="button"
                   onClick={() => toggleVip(a)}
                   aria-label={a.vip ? `Unmark ${a.username} as VIP` : `Mark ${a.username} as VIP`}
                   title={a.vip ? 'VIP' : 'Mark VIP'}
-                  className={'text-lg leading-none ' + (a.vip ? 'text-yellow-400' : 'text-secondary hover:text-fg')}
+                  className={
+                    'text-lg leading-none transition-colors ' +
+                    (a.vip ? 'text-yellow-400' : 'text-secondary/50 hover:text-fg')
+                  }
                 >
                   {a.vip ? '★' : '☆'}
                 </button>
               </td>
-              <td className="py-2 align-top">
+              <td className="border-b border-border px-2 py-3 align-top">
                 <input
                   type="checkbox"
                   checked={a.enabled}
                   onChange={(e) => toggle(a, e.target.checked)}
                   aria-label={`Enable ${a.username}`}
+                  className="mt-0.5 accent-fg"
                 />
               </td>
-              <td className="py-2 align-top">
+              <td className="border-b border-border px-3 py-3 align-top">
                 <div className="flex items-center gap-2">
-                  <Link href={profileHref(a)} className="flex items-center gap-2 text-fg hover:underline">
-                    <AccountIcon src={a.avatarUrl} username={a.username} size={28} />
+                  <Link
+                    href={profileHref(a)}
+                    className="flex items-center gap-2 font-medium text-fg hover:underline"
+                  >
+                    <AccountIcon src={a.avatarUrl} username={a.username} size={32} />
                     {a.username}
                   </Link>
-                  <PlatformBadge platform={a.platform} />
+                  {/* Threads is the default — only badge the exception (X) to cut noise */}
+                  {a.platform === 'x' && <PlatformBadge platform="x" />}
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-1">
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {a.tags.map((t) => (
                     <span
                       key={t}
@@ -232,22 +284,24 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                     onChange={(e) => setTagDrafts((d) => ({ ...d, [key(a)]: e.target.value }))}
                     onKeyDown={(e) => e.key === 'Enter' && submitTag(a)}
                     placeholder="+ tag"
-                    className="w-16 rounded-full border border-border bg-transparent px-2 py-0.5 text-[11px] text-fg outline-none placeholder:text-secondary"
+                    className="w-14 rounded-full border border-transparent bg-transparent px-2 py-0.5 text-[11px] text-fg outline-none transition-colors placeholder:text-secondary/60 hover:border-border focus:w-20 focus:border-border"
                   />
                 </div>
               </td>
-              <td className="py-2">
+              <td className="border-b border-border px-3 py-3 align-top">
                 <StatusBadge status={a.lastStatus} />
               </td>
-              <td className="py-2 text-right text-fg">{a.lastCount ?? '—'}</td>
-              <td className="py-2 text-right text-secondary">
+              <td className="border-b border-border px-3 py-3 text-right align-top tabular-nums text-fg">
+                {a.lastCount ?? '—'}
+              </td>
+              <td className="whitespace-nowrap border-b border-border px-3 py-3 text-right align-top text-secondary">
                 {a.lastCrawledAt ? relativeTime(Math.floor(a.lastCrawledAt / 1000)) + ' ago' : '—'}
               </td>
-              <td className="py-2">
-                <div className="flex items-center justify-end gap-2">
+              <td className="border-b border-border px-2 py-3 align-top">
+                <div className="flex items-center justify-end gap-1.5 opacity-80 transition-opacity group-hover:opacity-100">
                   <Link
                     href={`/manage/${a.username}?platform=${a.platform}`}
-                    className="rounded-md border border-border px-2 py-1 text-xs text-fg"
+                    className="rounded-md border border-border px-2 py-1 text-xs text-fg hover:bg-elevated"
                   >
                     Saved
                   </Link>
@@ -255,14 +309,16 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                     type="button"
                     onClick={() => crawl(a)}
                     disabled={busy !== null}
-                    className="rounded-md border border-border px-2 py-1 text-xs text-fg disabled:opacity-50"
+                    className="rounded-md border border-border px-2 py-1 text-xs text-fg hover:bg-elevated disabled:opacity-50"
                   >
                     {busy === key(a) ? '…' : 'Crawl'}
                   </button>
                   <button
                     type="button"
                     onClick={() => remove(a)}
-                    className="rounded-md border border-border px-2 py-1 text-xs text-red-500"
+                    aria-label={`Remove ${a.username}`}
+                    title="Remove"
+                    className="rounded-md border border-border px-2 py-1 text-xs text-red-500 hover:bg-red-500/10"
                   >
                     Remove
                   </button>
@@ -272,6 +328,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

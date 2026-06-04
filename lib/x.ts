@@ -138,6 +138,75 @@ export function parseXTimeline(html: string, username?: string): Post[] {
   return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
 }
 
+// --- Logged-in x.com GraphQL (Bookmarks, etc.) ---------------------------------
+// The public syndication embed (parseXTimeline) and x.com's own GraphQL API return
+// different shapes. The Chrome extension captures GraphQL responses, where each
+// tweet sits under a `tweet_results.result` carrying a `legacy` block (≈ RawTweet)
+// plus a `core.user_results.result` author. This walks arbitrary nesting, finds
+// those results, and reuses the tweet mappers. No login here — we only parse
+// responses the logged-in browser already fetched.
+
+interface XUserResult {
+  is_blue_verified?: boolean;
+  legacy?: { screen_name?: string; name?: string; profile_image_url_https?: string; verified?: boolean };
+  core?: { screen_name?: string; name?: string };
+  avatar?: { image_url?: string };
+}
+interface XTweetResult {
+  rest_id?: string;
+  legacy?: RawTweet;
+  tweet?: XTweetResult; // TweetWithVisibilityResults wraps the real tweet here
+  core?: { user_results?: { result?: XUserResult } };
+}
+
+// X has moved author fields around over time; read both the old `legacy` shape and
+// the newer `core`/`avatar` shape.
+function userFromResult(ur: XUserResult | undefined): RawTweet['user'] {
+  if (!ur) return undefined;
+  const lg = ur.legacy ?? {};
+  const core = ur.core ?? {};
+  return {
+    screen_name: core.screen_name ?? lg.screen_name,
+    name: core.name ?? lg.name,
+    profile_image_url_https: ur.avatar?.image_url ?? lg.profile_image_url_https,
+    verified: lg.verified,
+    is_blue_verified: ur.is_blue_verified,
+  };
+}
+
+function collectTweetResults(node: unknown, acc: XTweetResult[], depth = 0): void {
+  if (!node || typeof node !== 'object' || depth > 30) return;
+  if (Array.isArray(node)) {
+    for (const x of node) collectTweetResults(x, acc, depth + 1);
+    return;
+  }
+  const obj = node as XTweetResult & Record<string, unknown>;
+  // Limited-visibility tweets nest the real one under `.tweet`.
+  const real = obj.tweet && typeof obj.tweet === 'object' ? obj.tweet : obj;
+  if (real.legacy && (real.rest_id || real.legacy.id_str)) acc.push(real);
+  for (const k of Object.keys(obj)) collectTweetResults(obj[k], acc, depth + 1);
+}
+
+function mapXResult(r: XTweetResult): Post | null {
+  const legacy = r.legacy ?? {};
+  const id = r.rest_id ?? legacy.id_str;
+  if (!id) return null;
+  const user = userFromResult(r.core?.user_results?.result);
+  if (!user?.screen_name) return null; // skip tweets whose author didn't resolve
+  return mapTweet({ ...legacy, id_str: String(id), user });
+}
+
+export function collectXPostsFromData(data: unknown): Post[] {
+  const results: XTweetResult[] = [];
+  collectTweetResults(data, results);
+  const byId = new Map<string, Post>();
+  for (const r of results) {
+    const post = mapXResult(r);
+    if (post && !byId.has(post.id)) byId.set(post.id, post);
+  }
+  return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
+}
+
 export async function fetchXAccountFeed(username: string): Promise<ScrapeResult> {
   const handle = normalizeXHandle(username);
   const url = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}`;

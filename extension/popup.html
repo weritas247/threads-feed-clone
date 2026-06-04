@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        width: 280px;
+        margin: 0;
+        padding: 12px;
+        font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #111;
+        background: #fff;
+      }
+      h1 { font-size: 14px; margin: 0 0 8px; }
+      label { display: block; font-size: 11px; color: #666; margin: 8px 0 2px; }
+      input[type='text'] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 8px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 12px;
+      }
+      button {
+        width: 100%;
+        margin-top: 8px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background: #f4f4f4;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      button.primary { background: #111; color: #fff; border-color: #111; }
+      #count { margin-top: 10px; font-size: 12px; color: #444; }
+      #status { margin-top: 6px; font-size: 12px; color: #1a7f37; min-height: 16px; }
+      ol { margin: 8px 0 0; padding-left: 18px; color: #666; font-size: 11px; }
+      h2 { font-size: 12px; margin: 16px 0 4px; color: #333; }
+      hr { border: none; border-top: 1px solid #eee; margin: 14px 0 0; }
+      #acctStatus { margin-top: 6px; font-size: 12px; color: #1a7f37; min-height: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>Threads/X Saved → Feed Clone</h1>
+
+    <label for="appUrl">App URL</label>
+    <input id="appUrl" type="text" placeholder="http://localhost:4242" />
+
+    <h2>① Saved / bookmarked posts</h2>
+    <ol>
+      <li>Open your Threads <b>Saved</b> or X <b>Bookmarks</b> page (logged in).</li>
+      <li><b>Auto-scroll &amp; capture</b>, wait for it to finish.</li>
+      <li><b>Import to app</b>.</li>
+    </ol>
+    <button id="open">Open Saved / Bookmarks page</button>
+    <button id="scroll">Auto-scroll &amp; capture</button>
+    <button id="import" class="primary">Import to app</button>
+    <div id="count"></div>
+    <div id="status"></div>
+
+    <hr />
+
+    <h2>② Add accounts</h2>
+    <button id="addProfile">Add this profile</button>
+    <button id="addAll">Add all handles on this page</button>
+    <div id="acctStatus"></div>
+    <ol>
+      <li><b>Add this profile</b> works on any Threads or X profile page.</li>
+      <li>For your follows: open your <b>Following</b> list, scroll it, then
+        <b>Add all handles</b>.</li>
+    </ol>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
