@@ -18,10 +18,16 @@ export interface AccountRef {
 
 export interface AccountEntry extends AccountRef {
   enabled: boolean;
+  vip: boolean;
+  tags: string[];
   avatarUrl?: string;
   lastStatus?: CrawlStatus;
   lastCount?: number;
   lastCrawledAt?: number; // unix milliseconds
+}
+
+export function normalizeTag(tag: string): string {
+  return tag.trim().toLowerCase();
 }
 
 function dataFile(): string {
@@ -43,6 +49,8 @@ function seed(): AccountEntry[] {
     username: normalize(username),
     platform: 'threads' as Platform,
     enabled: true,
+    vip: false,
+    tags: [],
   }));
 }
 
@@ -55,8 +63,13 @@ export function getAccounts(): AccountEntry[] {
   }
   try {
     const raw = JSON.parse(readFileSync(file, 'utf8')) as AccountEntry[];
-    // migrate entries written before platform existed
-    return raw.map((a) => ({ ...a, platform: a.platform ?? 'threads' }));
+    // migrate entries written before platform/vip/tags existed
+    return raw.map((a) => ({
+      ...a,
+      platform: a.platform ?? 'threads',
+      vip: a.vip ?? false,
+      tags: a.tags ?? [],
+    }));
   } catch {
     return seed();
   }
@@ -70,7 +83,7 @@ export function addAccount(username: string, platform: Platform = 'threads'): Ac
   const handle = normalize(username);
   const list = getAccounts();
   if (handle && !list.some((a) => same(a, handle, platform))) {
-    list.push({ username: handle, platform, enabled: true });
+    list.push({ username: handle, platform, enabled: true, vip: false, tags: [] });
     save(list);
   }
   return list;
@@ -109,6 +122,48 @@ export function setAvatar(username: string, platform: Platform, avatarUrl: strin
   const list = getAccounts().map((a) => (same(a, username, platform) ? { ...a, avatarUrl } : a));
   save(list);
   return list;
+}
+
+export function addTag(username: string, platform: Platform, tag: string): AccountEntry[] {
+  const tg = normalizeTag(tag);
+  if (!tg) return getAccounts();
+  const list = getAccounts().map((a) =>
+    same(a, username, platform) ? { ...a, tags: [...new Set([...a.tags, tg])] } : a,
+  );
+  save(list);
+  return list;
+}
+
+export function removeTag(username: string, platform: Platform, tag: string): AccountEntry[] {
+  const tg = normalizeTag(tag);
+  const list = getAccounts().map((a) =>
+    same(a, username, platform) ? { ...a, tags: a.tags.filter((t) => t !== tg) } : a,
+  );
+  save(list);
+  return list;
+}
+
+export function setVip(username: string, platform: Platform, vip: boolean): AccountEntry[] {
+  const list = getAccounts().map((a) => (same(a, username, platform) ? { ...a, vip } : a));
+  save(list);
+  return list;
+}
+
+export function vipAccounts(): AccountRef[] {
+  return getAccounts()
+    .filter((a) => a.vip)
+    .map((a) => ({ username: a.username, platform: a.platform }));
+}
+
+export function allTags(): string[] {
+  return [...new Set(getAccounts().flatMap((a) => a.tags))].sort();
+}
+
+export function accountsWithTag(tag: string): AccountRef[] {
+  const tg = normalizeTag(tag);
+  return getAccounts()
+    .filter((a) => a.tags.includes(tg))
+    .map((a) => ({ username: a.username, platform: a.platform }));
 }
 
 export function accountsMissingAvatar(): AccountRef[] {

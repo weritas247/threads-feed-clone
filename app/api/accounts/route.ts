@@ -1,4 +1,4 @@
-import { getAccounts, addAccount, removeAccount, setEnabled, setAvatar } from '@/lib/accountStore';
+import { getAccounts, addAccount, removeAccount, setEnabled, setVip, setAvatar } from '@/lib/accountStore';
 import { fetchAvatar } from '@/lib/feeds';
 import type { Platform } from '@/lib/types';
 
@@ -31,15 +31,19 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 export async function PATCH(request: Request): Promise<Response> {
-  const { username, platform, enabled } = (await request.json().catch(() => ({}))) as {
+  const { username, platform, enabled, vip } = (await request.json().catch(() => ({}))) as {
     username?: string;
     platform?: Platform;
     enabled?: boolean;
+    vip?: boolean;
   };
-  if (!username || typeof enabled !== 'boolean') {
-    return new Response('username and enabled required', { status: 400 });
+  if (!username) {
+    return new Response('username required', { status: 400 });
   }
-  return Response.json(setEnabled(username, platformOf(platform), enabled));
+  const plat = platformOf(platform);
+  if (typeof enabled === 'boolean') return Response.json(setEnabled(username, plat, enabled));
+  if (typeof vip === 'boolean') return Response.json(setVip(username, plat, vip));
+  return new Response('enabled or vip required', { status: 400 });
 }
 
 export async function DELETE(request: Request): Promise<Response> {

@@ -11,6 +11,12 @@ import {
   setAvatar,
   accountsMissingAvatar,
   enabledAccounts,
+  addTag,
+  removeTag,
+  allTags,
+  accountsWithTag,
+  setVip,
+  vipAccounts,
 } from './accountStore';
 
 beforeEach(() => {
@@ -80,5 +86,36 @@ describe('accountStore', () => {
     setAvatar('avtest', 'threads', 'https://cdn/av.jpg');
     expect(getAccounts().find((x) => x.username === 'avtest')?.avatarUrl).toBe('https://cdn/av.jpg');
     expect(accountsMissingAvatar().some((a) => a.username === 'avtest')).toBe(false);
+  });
+
+  it('adds/removes multi tags (normalized, deduped) and lists them', () => {
+    addAccount('tagme', 'threads');
+    addTag('tagme', 'threads', 'AI');
+    addTag('tagme', 'threads', 'ai'); // duplicate after normalization
+    addTag('tagme', 'threads', '금융');
+    const a = getAccounts().find((x) => x.username === 'tagme');
+    expect(a?.tags.sort()).toEqual(['ai', '금융'].sort());
+    expect(allTags()).toContain('ai');
+    expect(accountsWithTag('금융').some((r) => r.username === 'tagme')).toBe(true);
+    removeTag('tagme', 'threads', 'ai');
+    expect(getAccounts().find((x) => x.username === 'tagme')?.tags).toEqual(['금융']);
+  });
+
+  it('tags are scoped per (username, platform)', () => {
+    addAccount('dup', 'threads');
+    addAccount('dup', 'x');
+    addTag('dup', 'x', 'vipnews');
+    expect(getAccounts().find((a) => a.username === 'dup' && a.platform === 'threads')?.tags).toEqual([]);
+    expect(getAccounts().find((a) => a.username === 'dup' && a.platform === 'x')?.tags).toEqual(['vipnews']);
+  });
+
+  it('toggles VIP and lists VIP accounts', () => {
+    addAccount('star', 'x');
+    expect(getAccounts().find((a) => a.username === 'star')?.vip).toBe(false);
+    setVip('star', 'x', true);
+    expect(getAccounts().find((a) => a.username === 'star')?.vip).toBe(true);
+    expect(vipAccounts().some((r) => r.username === 'star' && r.platform === 'x')).toBe(true);
+    setVip('star', 'x', false);
+    expect(vipAccounts().some((r) => r.username === 'star')).toBe(false);
   });
 });

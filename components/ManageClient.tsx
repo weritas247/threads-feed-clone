@@ -48,6 +48,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
   const [newPlatform, setNewPlatform] = useState<Platform>('threads');
   const [busy, setBusy] = useState<string | null>(null); // composite key being crawled, or '*all*'
   const [adding, setAdding] = useState(false);
+  const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
 
   async function api(path: string, method: string, body?: unknown): Promise<AccountEntry[] | null> {
     const res = await fetch(path, {
@@ -102,13 +103,33 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
     setBusy(null);
   }
 
+  async function toggleVip(a: AccountEntry) {
+    const list = await api('/api/accounts', 'PATCH', { username: a.username, platform: a.platform, vip: !a.vip });
+    if (list) setAccounts(list);
+  }
+
+  async function changeTag(a: AccountEntry, tag: string, op: 'add' | 'remove') {
+    const list = await api('/api/accounts/tags', 'POST', { username: a.username, platform: a.platform, tag, op });
+    if (list) setAccounts(list);
+  }
+
+  async function submitTag(a: AccountEntry) {
+    const draft = (tagDrafts[key(a)] ?? '').trim();
+    if (!draft) return;
+    await changeTag(a, draft, 'add');
+    setTagDrafts((d) => ({ ...d, [key(a)]: '' }));
+  }
+
   const enabledCount = accounts.filter((a) => a.enabled).length;
+  const vipCount = accounts.filter((a) => a.vip).length;
+  // VIP accounts pinned to the top (Slack-style), otherwise input order.
+  const ordered = [...accounts].sort((a, b) => Number(b.vip) - Number(a.vip));
 
   return (
     <div className="px-4 py-4">
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-secondary">
-          {accounts.length} accounts · {enabledCount} enabled
+          {accounts.length} accounts · {enabledCount} enabled · {vipCount} VIP
         </p>
         <button
           type="button"
@@ -150,6 +171,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left text-secondary">
+            <th className="py-2 font-normal" aria-label="VIP" />
             <th className="py-2 font-normal">On</th>
             <th className="py-2 font-normal">Account</th>
             <th className="py-2 font-normal">Status</th>
@@ -159,9 +181,20 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
           </tr>
         </thead>
         <tbody>
-          {accounts.map((a) => (
-            <tr key={key(a)} className="border-b border-border">
-              <td className="py-2">
+          {ordered.map((a) => (
+            <tr key={key(a)} className={'border-b border-border ' + (a.vip ? 'bg-yellow-400/5' : '')}>
+              <td className="py-2 pr-1 align-top">
+                <button
+                  type="button"
+                  onClick={() => toggleVip(a)}
+                  aria-label={a.vip ? `Unmark ${a.username} as VIP` : `Mark ${a.username} as VIP`}
+                  title={a.vip ? 'VIP' : 'Mark VIP'}
+                  className={'text-lg leading-none ' + (a.vip ? 'text-yellow-400' : 'text-secondary hover:text-fg')}
+                >
+                  {a.vip ? '★' : '☆'}
+                </button>
+              </td>
+              <td className="py-2 align-top">
                 <input
                   type="checkbox"
                   checked={a.enabled}
@@ -169,13 +202,38 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                   aria-label={`Enable ${a.username}`}
                 />
               </td>
-              <td className="py-2">
+              <td className="py-2 align-top">
                 <div className="flex items-center gap-2">
                   <Link href={profileHref(a)} className="flex items-center gap-2 text-fg hover:underline">
                     <AccountIcon src={a.avatarUrl} username={a.username} size={28} />
                     {a.username}
                   </Link>
                   <PlatformBadge platform={a.platform} />
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {a.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center gap-1 rounded-full bg-elevated px-2 py-0.5 text-[11px] text-secondary"
+                    >
+                      {t}
+                      <button
+                        type="button"
+                        onClick={() => changeTag(a, t, 'remove')}
+                        aria-label={`Remove tag ${t}`}
+                        className="text-secondary hover:text-fg"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    value={tagDrafts[key(a)] ?? ''}
+                    onChange={(e) => setTagDrafts((d) => ({ ...d, [key(a)]: e.target.value }))}
+                    onKeyDown={(e) => e.key === 'Enter' && submitTag(a)}
+                    placeholder="+ tag"
+                    className="w-16 rounded-full border border-border bg-transparent px-2 py-0.5 text-[11px] text-fg outline-none placeholder:text-secondary"
+                  />
                 </div>
               </td>
               <td className="py-2">
