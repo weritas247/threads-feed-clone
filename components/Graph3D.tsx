@@ -410,33 +410,6 @@ export function Graph3D({
     }
   }, [focusGroup, ready]);
 
-  // Keep every label the SAME on-screen size, near or far: each frame, scale each label
-  // sprite by its distance to the camera (perspective would otherwise shrink far labels).
-  // A few dozen sprites → negligible cost.
-  useEffect(() => {
-    let raf = 0;
-    const tmp = new THREE.Vector3();
-    const D0 = 420; // distance at which a label renders at its natural size (bigger ⇒ smaller labels)
-    const tick = () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fg: any = fgRef.current;
-      const cam = fg?.camera?.();
-      const scene = fg?.scene?.();
-      if (cam && scene) {
-        scene.traverse((o: THREE.Object3D) => {
-          const base = o.userData?.baseScale as THREE.Vector3 | undefined;
-          if (!base) return;
-          o.getWorldPosition(tmp);
-          const k = Math.max(0.15, cam.position.distanceTo(tmp) / D0);
-          o.scale.set(base.x * k, base.y * k, base.z * k || 1);
-        });
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
   // Custom node objects: a gradient-shaded sphere (light top → colour → dark bottom) + its
   // label. Geometry is shared and one material is cached per colour (≈ a handful total), so
   // 40 nodes cost almost nothing. Re-runs only when the search highlight changes.
@@ -474,17 +447,14 @@ export function Graph3D({
       group.add(mesh);
       const s = new SpriteText(n.id);
       s.color = dim ? 'rgba(170,173,182,0.55)' : '#eef1f5';
-      // One uniform size for every label (no count variance); a per-frame rAF then keeps it a
-      // CONSTANT on-screen size regardless of camera distance (see the label-scaling effect).
-      s.textHeight = 10;
+      // Smaller + low variance so big-count labels don't dominate or overlap their neighbours.
+      s.textHeight = 4.5 + Math.min(2.5, n.count * 0.28);
       s.fontWeight = '600';
       // A subtle dark chip so an overlapping label stays readable (nearer one draws on top).
       s.backgroundColor = dim ? 'rgba(9,10,15,0.4)' : 'rgba(9,10,15,0.62)';
       s.padding = 0.6;
       s.borderRadius = 2;
-      const sp = s as unknown as { position: { y: number }; scale: THREE.Vector3; userData: Record<string, unknown> };
-      sp.position.y = r + 4.5 + Math.cbrt(Math.max(1, n.count)) * 1.4;
-      sp.userData.baseScale = sp.scale.clone(); // intrinsic size+aspect, multiplied by distance each frame
+      (s as unknown as { position: { y: number } }).position.y = r + 4.5 + Math.cbrt(Math.max(1, n.count)) * 1.4;
       group.add(s);
       return group;
     },
