@@ -48,6 +48,7 @@ export function Graph3D({
   const [width, setWidth] = useState(640);
   const [search, setSearch] = useState('');
   const [ready, setReady] = useState(false);
+  const [focusGroup, setFocusGroup] = useState<string | null>(null);
 
   // Fit the view exactly once, then reveal the canvas — so the user never sees the layout
   // spread or the camera zoom (the jank); they just see the finished, framed graph fade in.
@@ -62,6 +63,7 @@ export function Graph3D({
   useEffect(() => {
     fittedRef.current = false;
     setReady(false);
+    setFocusGroup(null);
     const t = setTimeout(fitOnce, 4000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,22 +76,49 @@ export function Graph3D({
     return () => ro.disconnect();
   }, []);
 
-  // In-graph search: ids matching the query are highlighted, the rest dimmed; the camera
-  // flies to fit the matches.
+  // In-graph search: ids matching the query.
   const matchIds = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return null;
     return new Set(graph.nodes.filter((n) => n.id.toLowerCase().includes(q)).map((n) => n.id));
   }, [search, graph.nodes]);
 
+  // Ids of the focused cluster (a node's `group`), set by clicking a node.
+  const focusIds = useMemo(() => {
+    if (!focusGroup) return null;
+    return new Set(graph.nodes.filter((n) => n.group === focusGroup).map((n) => n.id));
+  }, [focusGroup, graph.nodes]);
+
+  // What's highlighted right now — a search wins over a clicked cluster; null = show all.
+  const activeIds = matchIds ?? focusIds;
+
+  // Fly the camera to fit the search matches (graphData has no reliable positions here, so
+  // cluster zoom is done in onNodeClick where the clicked node carries x/y/z).
   useEffect(() => {
     if (!matchIds || matchIds.size === 0) return;
     const t = setTimeout(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      fgRef.current?.zoomToFit?.(600, 60, (n: any) => matchIds.has(n.id));
-    }, 250);
+      fgRef.current?.zoomToFit?.(600, 40, (n: any) => matchIds.has(n.id));
+    }, 200);
     return () => clearTimeout(t);
   }, [matchIds]);
+
+  // Fly the camera close to a clicked node (its position is reliable in the click event),
+  // looking at it — zooms into that node's cluster.
+  const flyTo = (n: { x: number; y: number; z: number }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fg: any = fgRef.current;
+    if (!fg || typeof n.x !== 'number') return;
+    const cam = fg.camera();
+    const dx = cam.position.x - n.x, dy = cam.position.y - n.y, dz = cam.position.z - n.z;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const dist = 150;
+    fg.cameraPosition(
+      { x: n.x + (dx / len) * dist, y: n.y + (dy / len) * dist, z: n.z + (dz / len) * dist },
+      { x: n.x, y: n.y, z: n.z },
+      700,
+    );
+  };
 
   // Add a starfield + subtle depth fog to the 3D scene so rotation reads as 3D motion
   // (a flat single-colour background gives no spatial reference). Added once the graph's
@@ -162,16 +191,21 @@ export function Graph3D({
         scene.add(sun);
       }
 
-      // Zoom toward the cursor (not the universe origin), so you can zoom into an
-      // off-centre cluster. screenSpacePanning makes drag-pan intuitive.
+      // OrbitControls config: zoom toward the cursor (into an off-centre cluster), free
+      // 360° horizontal + full vertical tilt, intuitive pan. (Orbit keeps programmatic
+      // camera moves — cluster zoom / search fly-to — reliable, unlike trackball.)
       const controls = fgRef.current?.controls?.();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const c = controls as any;
-      if (c && !c.__zoomCursorSet) {
-        c.zoomToCursor = true;
-        c.screenSpacePanning = true;
-        c.__zoomCursorSet = true;
+      const ctl = controls as any;
+      if (ctl && !ctl.__cfg) {
+        ctl.zoomToCursor = true;
+        ctl.screenSpacePanning = true;
+        ctl.minPolarAngle = 0.0001;
+        ctl.maxPolarAngle = Math.PI - 0.0001;
+        ctl.__cfg = true;
       }
+      const cv = wrapRef.current?.querySelector('canvas');
+      if (cv) (cv as HTMLElement).style.cursor = 'grab';
     };
     raf = requestAnimationFrame(add);
     return () => cancelAnimationFrame(raf);
@@ -209,7 +243,7 @@ export function Graph3D({
   const matCache = useRef(new Map<string, THREE.Material>());
   const nodeObject = useCallback(
     (n: { id: string; count: number; color: string }) => {
-      const dim = matchIds ? !matchIds.has(n.id) : false;
+      const dim = activeIds ? !activeIds.has(n.id) : false;
       const key = dim ? '__dim' : n.color;
       let mat = matCache.current.get(key);
       if (!mat) {
@@ -235,14 +269,19 @@ export function Graph3D({
       const group = new THREE.Group();
       group.add(mesh);
       const s = new SpriteText(n.id);
-      s.color = dim ? 'rgba(150,152,160,0.4)' : '#f3f5f7';
-      s.textHeight = 7 + Math.min(7, n.count * 0.7);
+      s.color = dim ? 'rgba(170,173,182,0.55)' : '#eef1f5';
+      // Smaller + low variance so big-count labels don't dominate or overlap their neighbours.
+      s.textHeight = 4.5 + Math.min(2.5, n.count * 0.28);
       s.fontWeight = '600';
-      (s as unknown as { position: { y: number } }).position.y = r + 6 + Math.cbrt(Math.max(1, n.count)) * 2;
+      // A subtle dark chip so an overlapping label stays readable (nearer one draws on top).
+      s.backgroundColor = dim ? 'rgba(9,10,15,0.4)' : 'rgba(9,10,15,0.62)';
+      s.padding = 0.6;
+      s.borderRadius = 2;
+      (s as unknown as { position: { y: number } }).position.y = r + 4.5 + Math.cbrt(Math.max(1, n.count)) * 1.4;
       group.add(s);
       return group;
     },
-    [matchIds, sphereGeo],
+    [activeIds, sphereGeo],
   );
 
   if (graph.nodes.length === 0) {
@@ -306,12 +345,29 @@ export function Graph3D({
           nodeLabel={(n: { id: string; count: number }) => `${n.id} · 포스트 ${n.count}개`}
           nodeThreeObjectExtend={false}
           nodeThreeObject={nodeObject}
-          linkColor={() => (matchIds ? 'rgba(120,125,140,0.08)' : 'rgba(170,175,190,0.22)')}
+          linkColor={() => (activeIds ? 'rgba(120,125,140,0.08)' : 'rgba(170,175,190,0.22)')}
           linkWidth={(l: { weight: number }) => Math.min(2, 0.4 + (l.weight ?? 1) * 0.4)}
-          linkDirectionalParticles={matchIds ? 0 : 2}
+          linkDirectionalParticles={activeIds ? 0 : 2}
           linkDirectionalParticleWidth={1.4}
           linkDirectionalParticleColor={() => 'rgba(200,205,220,0.8)'}
-          onNodeClick={(n: { id: string }) => router.push(`${hrefBase}${encodeURIComponent(n.id)}`)}
+          onNodeClick={(n: { id: string; group: string; x: number; y: number; z: number }) => {
+            // First click on a cluster → fly in close & focus it; click again → open the hub.
+            if (focusGroup === n.group) router.push(`${hrefBase}${encodeURIComponent(n.id)}`);
+            else {
+              setSearch('');
+              setFocusGroup(n.group);
+              flyTo(n);
+            }
+          }}
+          onBackgroundClick={() => {
+            setFocusGroup(null);
+            setSearch('');
+            fgRef.current?.zoomToFit?.(600, 50);
+          }}
+          onNodeHover={(node: unknown) => {
+            const cv = wrapRef.current?.querySelector('canvas');
+            if (cv) (cv as HTMLElement).style.cursor = node ? 'pointer' : 'grab';
+          }}
         />
         </div>
         {/* Vignette shading — edges fall into shadow so the scene reads with depth. */}
@@ -321,8 +377,28 @@ export function Graph3D({
         />
       </div>
       <p className="mt-2 px-2 text-xs text-secondary">
-        {graph.nodes.length}개 · {graph.edges.length}개 연결 · 색 = {kind === 'entity' ? '타입' : '클러스터'}, 크기 =
-        포스트 수. 드래그 회전 · 휠 줌 · 노드 클릭 시 허브.
+        {focusGroup ? (
+          <>
+            <span className="text-fg">「{kind === 'entity' ? ENTITY_LABEL[focusGroup] ?? focusGroup : focusGroup}」</span>{' '}
+            클러스터로 확대됨 · 노드를 다시 클릭하면 허브로 ·{' '}
+            <button
+              type="button"
+              onClick={() => {
+                setFocusGroup(null);
+                setSearch('');
+                fgRef.current?.zoomToFit?.(600, 50);
+              }}
+              className="text-fg hover:underline"
+            >
+              전체 보기
+            </button>
+          </>
+        ) : (
+          <>
+            {graph.nodes.length}개 · {graph.edges.length}개 연결 · 색 = {kind === 'entity' ? '타입' : '클러스터'}, 크기 = 포스트
+            수 · 노드를 클릭하면 클러스터로 확대 · 드래그 회전 · 휠 줌
+          </>
+        )}
       </p>
     </div>
   );
