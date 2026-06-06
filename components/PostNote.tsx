@@ -47,7 +47,7 @@ export function PostNote({ post, initialNote = '' }: { post: Post; initialNote?:
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save();
             else if (e.key === 'Escape') setEditing(false);
           }}
-          placeholder="Add a private note…"
+          placeholder="비공개 메모 추가…"
           rows={2}
           className="w-full rounded-lg border border-border bg-elevated px-3 py-2 text-[13px] text-fg outline-none placeholder:text-secondary/60"
         />
@@ -58,16 +58,16 @@ export function PostNote({ post, initialNote = '' }: { post: Post; initialNote?:
             disabled={busy}
             className="rounded-full bg-fg px-3 py-1 text-xs font-semibold text-bg disabled:opacity-50"
           >
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? '저장 중…' : '저장'}
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
             className="rounded-full px-2 py-1 text-xs text-secondary hover:text-fg"
           >
-            Cancel
+            취소
           </button>
-          <span className="text-[11px] text-secondary/60">⌘↵ to save</span>
+          <span className="text-[11px] text-secondary/60">⌘↵ 로 저장</span>
         </div>
       </div>
     );
@@ -78,9 +78,9 @@ export function PostNote({ post, initialNote = '' }: { post: Post; initialNote?:
       <button
         type="button"
         onClick={startEdit}
-        className="mt-2 inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-secondary transition-colors hover:bg-elevated hover:text-fg"
+        className="mt-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-secondary transition-colors hover:bg-elevated hover:text-fg"
       >
-        <NoteIcon className="h-[15px] w-[15px]" /> Note
+        <NoteIcon className="h-[15px] w-[15px]" /> 메모
       </button>
     );
   }
@@ -89,7 +89,7 @@ export function PostNote({ post, initialNote = '' }: { post: Post; initialNote?:
     <button
       type="button"
       onClick={startEdit}
-      title="Edit note"
+      title="메모 편집"
       className="mt-2 block w-full rounded-lg border-l-2 border-fg/40 bg-elevated px-3 py-2 text-left text-[13px] leading-[1.5] text-fg hover:bg-elevated/70"
     >
       <span className="whitespace-pre-wrap break-words">{note}</span>

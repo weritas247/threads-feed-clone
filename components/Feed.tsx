@@ -1,4 +1,5 @@
 import type { Post } from '@/lib/types';
+import type { CaptureState } from '@/lib/captureStateStore';
 import { PostCard } from './PostCard';
 
 // Renders every post at once. Used where the full list is wanted up front (search).
@@ -9,17 +10,24 @@ export function Feed({
   savedKeys,
   tagMap,
   noteMap,
+  stateMap,
+  topicMap,
+  preservedKeys,
 }: {
   posts: Post[];
   highlight?: string[];
   savedKeys?: string[];
   tagMap?: Record<string, string[]>;
   noteMap?: Record<string, string>;
+  stateMap?: Record<string, CaptureState>;
+  topicMap?: Record<string, string[]>;
+  preservedKeys?: string[];
 }) {
   if (posts.length === 0) {
-    return <p className="px-4 py-16 text-center text-secondary">No posts to show.</p>;
+    return <p className="px-4 py-16 text-center text-secondary">표시할 포스트가 없습니다.</p>;
   }
   const saved = new Set(savedKeys);
+  const preserved = new Set(preservedKeys);
   return (
     <div>
       {posts.map((p) => {
@@ -32,6 +40,9 @@ export function Feed({
             saved={saved.has(k)}
             tags={tagMap?.[k]}
             note={noteMap?.[k]}
+            state={stateMap?.[k]}
+            topics={topicMap?.[k]}
+            preserved={preserved.has(k)}
           />
         );
       })}

@@ -56,10 +56,10 @@ export function FeedSummary({ posts }: { posts: Post[] }) {
         body: JSON.stringify({ items, provider: provider || undefined }),
       });
       const data = await res.json();
-      if (!res.ok) setError(data.error ?? 'Summarization failed.');
+      if (!res.ok) setError(data.error ?? '요약에 실패했습니다.');
       else setResult(data as Result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Request failed.');
+      setError(e instanceof Error ? e.message : '요청에 실패했습니다.');
     } finally {
       setBusy(false);
     }
@@ -75,15 +75,15 @@ export function FeedSummary({ posts }: { posts: Post[] }) {
           onClick={summarize}
           disabled={busy || noKeys}
           className="rounded-full bg-fg px-4 py-1.5 text-sm font-semibold text-bg disabled:opacity-50"
-          title={noKeys ? 'Set ANTHROPIC_API_KEY or GEMINI_API_KEY to enable' : undefined}
+          title={noKeys ? 'ANTHROPIC_API_KEY 또는 GEMINI_API_KEY를 설정하면 활성화됩니다' : undefined}
         >
-          {busy ? 'Summarizing…' : '✨ Summarize feed'}
+          {busy ? '요약 중…' : '✨ 피드 요약'}
         </button>
         {providers.length > 1 && (
           <select
             value={provider}
             onChange={(e) => setProvider(e.target.value as AiProvider)}
-            aria-label="AI provider"
+            aria-label="AI 제공자"
             className="rounded-lg border border-border bg-elevated px-2 py-1.5 text-sm text-fg outline-none"
           >
             {providers.map((p) => (
@@ -95,8 +95,8 @@ export function FeedSummary({ posts }: { posts: Post[] }) {
         )}
         {noKeys && (
           <span className="text-xs text-secondary">
-            Set <code className="rounded bg-elevated px-1">ANTHROPIC_API_KEY</code> or{' '}
-            <code className="rounded bg-elevated px-1">GEMINI_API_KEY</code> to enable.
+            <code className="rounded bg-elevated px-1">ANTHROPIC_API_KEY</code> 또는{' '}
+            <code className="rounded bg-elevated px-1">GEMINI_API_KEY</code>를 설정하면 활성화됩니다.
           </span>
         )}
         {open && (result || error) && (
@@ -105,7 +105,7 @@ export function FeedSummary({ posts }: { posts: Post[] }) {
             onClick={() => setOpen(false)}
             className="ml-auto rounded-md border border-border px-2 py-1 text-xs text-secondary"
           >
-            Hide
+            숨기기
           </button>
         )}
       </div>
@@ -118,7 +118,7 @@ export function FeedSummary({ posts }: { posts: Post[] }) {
             <>
               <p className="whitespace-pre-wrap leading-[1.5] text-fg">{result.summary}</p>
               <p className="mt-2 text-[11px] text-secondary">
-                {LABEL[result.provider]} · {result.model} · {result.count} posts
+                {LABEL[result.provider]} · {result.model} · 게시물 {result.count}개
               </p>
             </>
           ) : null}

@@ -2,12 +2,15 @@ import { getAllSavedPosts } from '@/lib/postStore';
 import { bookmarkedKeys } from '@/lib/bookmarkStore';
 import { getTagMap, tagsForPosts, parseTagParam, filterPostsByTags } from '@/lib/postTagStore';
 import { getNoteMap } from '@/lib/postNoteStore';
+import { getTopicMap } from '@/lib/enrichmentStore';
+import { getPreservedKeys } from '@/lib/preservedStore';
 import { allTags, accountsWithTag, vipAccounts } from '@/lib/accountStore';
 import { InfiniteFeed } from '@/components/InfiniteFeed';
 import { FeedTabs } from '@/components/FeedTabs';
 import { FeedSummary } from '@/components/FeedSummary';
 import { TagBar } from '@/components/TagBar';
 import { PostTagFilter } from '@/components/PostTagFilter';
+import { GettingStarted } from '@/components/GettingStarted';
 import type { Platform } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +33,9 @@ export default async function HomePage({
   const tagMap = getTagMap();
   const selectedPtags = parseTagParam(ptag);
 
-  let scoped = getAllSavedPosts().filter((p) => !platform || p.platform === platform);
+  const allPosts = getAllSavedPosts();
+  const archiveEmpty = allPosts.length === 0;
+  let scoped = allPosts.filter((p) => !platform || p.platform === platform);
   if (isVip || activeTag) {
     const refs = isVip ? vipAccounts() : accountsWithTag(activeTag as string);
     const keys = new Set(refs.map((r) => `${r.platform}:${r.username}`));
@@ -48,6 +53,11 @@ export default async function HomePage({
   if (activeTag) baseParams.tag = activeTag;
   if (isVip) baseParams.vip = '1';
 
+  // Brand-new archive: skip the feed chrome and show the getting-started guide instead.
+  if (archiveEmpty) {
+    return <GettingStarted />;
+  }
+
   return (
     <>
       <FeedTabs active={active} />
@@ -59,19 +69,19 @@ export default async function HomePage({
       {posts.length === 0 ? (
         <p className="px-4 py-16 text-center text-secondary">
           {selectedPtags.length > 0 ? (
-            <>No posts match these tags.</>
+            <>이 태그와 일치하는 포스트가 없습니다.</>
           ) : (
             <>
-              No posts here yet. Add, tag and crawl accounts from the{' '}
+              아직 포스트가 없습니다.{' '}
               <a href="/manage" className="underline">
-                Manage
+                관리
               </a>{' '}
-              tab.
+              탭에서 계정을 추가하고 태그를 지정한 뒤 크롤하세요.
             </>
           )}
         </p>
       ) : (
-        <InfiniteFeed posts={posts} savedKeys={[...bookmarkedKeys()]} tagMap={tagMap} noteMap={getNoteMap()} />
+        <InfiniteFeed posts={posts} savedKeys={[...bookmarkedKeys()]} tagMap={tagMap} noteMap={getNoteMap()} topicMap={getTopicMap()} preservedKeys={[...getPreservedKeys()]} />
       )}
     </>
   );

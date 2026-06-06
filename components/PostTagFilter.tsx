@@ -34,7 +34,7 @@ export function PostTagFilter({
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-      <span className="mr-1 text-xs font-medium text-secondary">Filter by tag</span>
+      <span className="mr-1 text-xs font-medium text-secondary">태그로 필터</span>
       {tags.map((t) => {
         const on = sel.has(t);
         const next = on ? selected.filter((x) => x !== t) : [...selected, t];
@@ -49,7 +49,7 @@ export function PostTagFilter({
           href={href([])}
           className="rounded-full px-2 py-1 text-xs text-secondary underline hover:text-fg"
         >
-          Clear
+          초기화
         </Link>
       )}
     </div>

@@ -45,8 +45,8 @@ export function SearchBox({ initial = '' }: { initial?: string }) {
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search posts, accounts, or #tags"
-        aria-label="Search"
+        placeholder="게시물, 계정 또는 #태그 검색"
+        aria-label="검색"
         autoFocus
         className="w-full rounded-lg border border-border bg-elevated px-3 py-2 pr-9 text-sm text-fg outline-none placeholder:text-secondary"
       />
@@ -54,7 +54,7 @@ export function SearchBox({ initial = '' }: { initial?: string }) {
         <button
           type="button"
           onClick={() => setQ('')}
-          aria-label="Clear search"
+          aria-label="검색어 지우기"
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full px-2 text-lg leading-none text-secondary hover:text-fg"
         >
           ×

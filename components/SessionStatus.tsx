@@ -33,10 +33,10 @@ export function SessionStatus() {
   return (
     <div className="mb-4 rounded-xl border border-border px-3 py-2.5 text-sm">
       <div className="flex items-center justify-between">
-        <span className="font-medium text-fg">Sessions</span>
+        <span className="font-medium text-fg">세션</span>
         {!anyConnected && (
           <span className="text-xs text-secondary">
-            Connect via the SNS Cookie Parser extension
+            SNS Cookie Parser 확장 프로그램으로 연결하세요
           </span>
         )}
       </div>
@@ -57,7 +57,7 @@ export function SessionStatus() {
                 <button
                   type="button"
                   onClick={() => clear(s.platform)}
-                  aria-label={`Disconnect ${LABEL[s.platform] ?? s.platform}`}
+                  aria-label={`${LABEL[s.platform] ?? s.platform} 연결 해제`}
                   className="ml-0.5 text-secondary hover:text-fg"
                 >
                   ×

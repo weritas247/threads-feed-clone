@@ -19,7 +19,7 @@ export function ThreadChain({ posts, highlight }: { posts: Post[]; highlight?: s
       onClick={() => setOpen((o) => !o)}
       className="mt-2 text-[13px] font-semibold text-secondary hover:text-fg"
     >
-      {open ? 'Hide thread' : `Show this thread (${posts.length} more ${posts.length === 1 ? 'post' : 'posts'})`}
+      {open ? '스레드 숨기기' : `이 스레드 보기 (포스트 ${posts.length}개 더)`}
     </button>
   );
 

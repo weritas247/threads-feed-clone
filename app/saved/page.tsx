@@ -1,6 +1,8 @@
 import { getBookmarks, bookmarkedKeys } from '@/lib/bookmarkStore';
 import { getTagMap, tagsForPosts, parseTagParam, filterPostsByTags } from '@/lib/postTagStore';
 import { getNoteMap } from '@/lib/postNoteStore';
+import { getTopicMap } from '@/lib/enrichmentStore';
+import { getPreservedKeys } from '@/lib/preservedStore';
 import { InfiniteFeed } from '@/components/InfiniteFeed';
 import { FeedTabs } from '@/components/FeedTabs';
 import { FeedSummary } from '@/components/FeedSummary';
@@ -36,15 +38,15 @@ export default async function SavedPage({
       )}
       {all.length === 0 ? (
         <p className="px-4 py-16 text-center text-secondary">
-          No saved posts yet. Use <span className="font-semibold text-fg">Import from Threads</span>{' '}
-          above to bring in the posts you bookmarked on Threads.
+          아직 저장된 포스트가 없습니다. 위의 <span className="font-semibold text-fg">Threads에서 가져오기</span>를{' '}
+          사용해 Threads에서 저장한 포스트를 가져오세요.
         </p>
       ) : posts.length === 0 ? (
-        <p className="px-4 py-16 text-center text-secondary">No saved posts match these tags.</p>
+        <p className="px-4 py-16 text-center text-secondary">이 태그와 일치하는 저장된 포스트가 없습니다.</p>
       ) : (
         <>
           <FeedSummary posts={posts} />
-          <InfiniteFeed posts={posts} savedKeys={[...bookmarkedKeys()]} tagMap={tagMap} noteMap={getNoteMap()} />
+          <InfiniteFeed posts={posts} savedKeys={[...bookmarkedKeys()]} tagMap={tagMap} noteMap={getNoteMap()} topicMap={getTopicMap()} preservedKeys={[...getPreservedKeys()]} />
         </>
       )}
     </>

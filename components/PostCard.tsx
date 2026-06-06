@@ -8,8 +8,13 @@ import { MediaView } from './Media';
 import { ActionBar } from './ActionBar';
 import { ThreadChain } from './ThreadChain';
 import { PostTags } from './PostTags';
+import { PostTopics } from './PostTopics';
 import { PostNote } from './PostNote';
+import { TriageControls } from './TriageControls';
+import { RelatedPosts } from './RelatedPosts';
+import { AddToCollection } from './AddToCollection';
 import { Highlight } from './Highlight';
+import type { CaptureState } from '@/lib/captureStateStore';
 
 export function PostCard({
   post,
@@ -17,15 +22,21 @@ export function PostCard({
   saved,
   tags,
   note,
+  state,
+  topics,
+  preserved,
 }: {
   post: Post;
   highlight?: string[];
   saved?: boolean;
   tags?: string[];
   note?: string;
+  state?: CaptureState;
+  topics?: string[];
+  preserved?: boolean;
 }) {
   return (
-    <article className="flex gap-3 border-b border-border px-4 py-3">
+    <article className="group/card flex gap-3 border-b border-border px-4 py-3">
       <div className="flex flex-col items-center">
         <Link href={`/@${post.author.username}`} aria-hidden tabIndex={-1}>
           <Avatar src={post.author.avatarUrl} username={post.author.username} size={36} />
@@ -57,14 +68,22 @@ export function PostCard({
           <span className="ml-2 rounded bg-elevated px-1.5 py-0.5 text-[11px] font-normal text-secondary">
             {post.platform === 'x' ? 'X' : 'Threads'}
           </span>
+          {preserved && (
+            <span
+              title="원본에서 사라진 포스트 — 아카이브에 보존됨"
+              className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-normal text-amber-600 dark:text-amber-400"
+            >
+              📦 보존됨
+            </span>
+          )}
           {post.code && (
             <a
               href={post.permalink}
               target="_blank"
               rel="noopener noreferrer"
               className="ml-auto text-secondary hover:text-fg"
-              aria-label="Open original"
-              title="Open original"
+              aria-label="원본 열기"
+              title="원본 열기"
             >
               <MoreIcon />
             </a>
@@ -77,8 +96,18 @@ export function PostCard({
         )}
         <MediaView media={post.media} />
         <ActionBar stats={post.stats} post={post} saved={saved} />
-        <PostTags post={post} initialTags={tags} />
-        <PostNote post={post} initialNote={note} />
+        {/* 보조 도구: 데스크톱에서는 카드에 마우스를 올리거나 포커스될 때만 표시해 피드를
+            깔끔하게 유지한다. 모바일(hover 불가)에서는 항상 표시. */}
+        <div className="transition-opacity duration-150 sm:opacity-0 sm:group-hover/card:opacity-100 sm:focus-within:opacity-100">
+          <PostTopics post={post} initialTopics={topics} />
+          <PostTags post={post} initialTags={tags} />
+          <PostNote post={post} initialNote={note} />
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <TriageControls post={post} initialState={state} />
+            <RelatedPosts post={post} />
+            <AddToCollection post={post} />
+          </div>
+        </div>
         <ThreadChain posts={post.chain} highlight={highlight} />
       </div>
     </article>

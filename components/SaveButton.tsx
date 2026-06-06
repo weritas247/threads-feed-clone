@@ -41,8 +41,8 @@ export function SaveButton({ post, initialSaved = false }: { post: Post; initial
       type="button"
       onClick={toggle}
       aria-pressed={saved}
-      aria-label={saved ? 'Remove bookmark' : 'Save'}
-      title={saved ? 'Saved' : 'Save'}
+      aria-label={saved ? '저장 해제' : '저장'}
+      title={saved ? '저장됨' : '저장'}
       className="ml-auto rounded-full p-2 -m-2 text-fg hover:bg-elevated"
     >
       <BookmarkIcon filled={saved} />

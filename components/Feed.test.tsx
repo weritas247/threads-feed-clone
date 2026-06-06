@@ -17,6 +17,6 @@ describe('Feed', () => {
   });
   it('renders an empty state when there are no posts', () => {
     render(<Feed posts={[]} />);
-    expect(screen.getByText(/No posts/i)).toBeInTheDocument();
+    expect(screen.getByText(/표시할 포스트가 없습니다/)).toBeInTheDocument();
   });
 });

@@ -1,7 +1,9 @@
 import { fetchFeed } from '@/lib/feeds';
 import { enabledAccounts, recordCrawl, getAccounts } from '@/lib/accountStore';
 import type { AccountEntry } from '@/lib/accountStore';
-import { savePosts } from '@/lib/postStore';
+import { savePosts, getSavedPosts } from '@/lib/postStore';
+import { archivePosts } from '@/lib/mediaArchive';
+import { reconcilePreservation } from '@/lib/preservedStore';
 import type { Platform } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -22,7 +24,16 @@ export async function POST(request: Request): Promise<Response> {
     const status = result.ok ? 'ok' : result.reason;
     const count = result.ok ? result.posts.length : 0;
     const avatarUrl = result.ok ? result.posts[0]?.author.avatarUrl : undefined;
-    if (result.ok) savePosts(acct.username, acct.platform, result.posts);
+    if (result.ok) {
+      // Reconcile preservation BEFORE saving: posts we had but this crawl didn't return are
+      // gone-at-source → mark preserved. (Compare against what's stored, pre-merge.)
+      const storedIds = getSavedPosts(acct.username, acct.platform).map((p) => p.id);
+      reconcilePreservation(acct.platform, storedIds, result.posts.map((p) => p.id));
+      // Archive media at crawl time (the only window before CDN URLs expire). Opt-in via
+      // ARCHIVE_MEDIA=1; best-effort and guarded, so it never breaks a crawl.
+      const posts = await archivePosts(result.posts);
+      savePosts(acct.username, acct.platform, posts);
+    }
     recordCrawl(acct.username, acct.platform, status, count, Date.now(), avatarUrl);
   }
 

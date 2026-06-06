@@ -2,6 +2,8 @@ import { fetchAccountFeed, normalizeUsername } from '@/lib/threads';
 import { bookmarkedKeys } from '@/lib/bookmarkStore';
 import { getTagMap, tagsForPosts, parseTagParam, filterPostsByTags } from '@/lib/postTagStore';
 import { getNoteMap } from '@/lib/postNoteStore';
+import { getTopicMap } from '@/lib/enrichmentStore';
+import { getPreservedKeys } from '@/lib/preservedStore';
 import { InfiniteFeed } from '@/components/InfiniteFeed';
 import { FeedSummary } from '@/components/FeedSummary';
 import { PostTagFilter } from '@/components/PostTagFilter';
@@ -34,9 +36,9 @@ export default async function AccountPage({
 
   if (!result.ok) {
     const msg =
-      result.reason === 'not_found' ? 'Account not found.'
-      : result.reason === 'private' ? 'This account is private.'
-      : 'Could not load this account right now.';
+      result.reason === 'not_found' ? '계정을 찾을 수 없습니다.'
+      : result.reason === 'private' ? '비공개 계정입니다.'
+      : '지금은 이 계정을 불러올 수 없습니다.';
     return <p className="px-4 py-16 text-center text-secondary">{msg}</p>;
   }
 
@@ -55,10 +57,10 @@ export default async function AccountPage({
       {posts.length > 0 ? (
         <>
           <FeedSummary posts={posts} />
-          <InfiniteFeed posts={posts} savedKeys={[...bookmarkedKeys()]} tagMap={tagMap} noteMap={getNoteMap()} />
+          <InfiniteFeed posts={posts} savedKeys={[...bookmarkedKeys()]} tagMap={tagMap} noteMap={getNoteMap()} topicMap={getTopicMap()} preservedKeys={[...getPreservedKeys()]} />
         </>
       ) : (
-        <p className="px-4 py-16 text-center text-secondary">No posts match these tags.</p>
+        <p className="px-4 py-16 text-center text-secondary">이 태그에 해당하는 포스트가 없습니다.</p>
       )}
     </>
   );

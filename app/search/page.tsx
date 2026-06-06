@@ -3,7 +3,10 @@ import { getAllSavedPosts } from '@/lib/postStore';
 import { bookmarkedKeys } from '@/lib/bookmarkStore';
 import { getTagMap, allPostTags, tagCounts, keysWithTag } from '@/lib/postTagStore';
 import { getNoteMap } from '@/lib/postNoteStore';
+import { getTopicMap } from '@/lib/enrichmentStore';
 import { searchPosts, tokenize, accountMatches } from '@/lib/search';
+import { getEmbedder } from '@/lib/ai';
+import { rankByVector, mergeHybrid } from '@/lib/semanticSearch';
 import { getAccounts } from '@/lib/accountStore';
 import { Feed } from '@/components/Feed';
 import { FeedSummary } from '@/components/FeedSummary';
@@ -32,14 +35,26 @@ export default async function SearchPage({
 
   // Tag search takes precedence: every post carrying #activeTag, across all feeds.
   let posts: Post[] = [];
+  let related: Post[] = [];
   let accounts: ReturnType<typeof getAccounts> = [];
   if (activeTag) {
     const keys = keysWithTag(activeTag);
     posts = getAllSavedPosts().filter((p) => keys.has(`${p.platform}:${p.id}`));
   } else if (query) {
-    // Notes are searchable too — a query matches a post's text, author, tags, or memo.
-    posts = searchPosts(getAllSavedPosts(), query, noteMap);
+    const all = getAllSavedPosts();
+    // Exact: a query matches a post's text, author, tags, or memo.
+    posts = searchPosts(all, query, noteMap);
     accounts = getAccounts().filter((a) => accountMatches(a.username, a.username, query));
+    // Semantic recall: posts close in MEANING but not literal-matching the query. Needs
+    // embedded posts (run the enrich pipeline); degrades to empty if none/embed fails.
+    try {
+      const embedder = getEmbedder();
+      const [qv] = await embedder.embed([query]);
+      const semantic = rankByVector(all, qv, embedder.id, 24, 0.1);
+      related = mergeHybrid(posts, semantic).related.map((s) => s.item);
+    } catch {
+      related = [];
+    }
   }
 
   function tagChip(t: string) {
@@ -71,26 +86,25 @@ export default async function SearchPage({
       {activeTag ? (
         <>
           <p className="px-4 pt-3 text-sm text-secondary">
-            {posts.length} {posts.length === 1 ? 'post' : 'posts'} tagged{' '}
-            <span className="text-fg">#{activeTag}</span>
+            <span className="text-fg">#{activeTag}</span> 태그가 달린 포스트 {posts.length}개
           </p>
           {posts.length > 0 ? (
             <>
               <FeedSummary posts={posts} />
-              <Feed posts={posts} savedKeys={savedKeys} tagMap={tagMap} noteMap={noteMap} />
+              <Feed posts={posts} savedKeys={savedKeys} tagMap={tagMap} noteMap={noteMap} topicMap={getTopicMap()} />
             </>
           ) : (
-            <p className="px-4 py-16 text-center text-secondary">No posts tagged #{activeTag} yet.</p>
+            <p className="px-4 py-16 text-center text-secondary">아직 #{activeTag} 태그가 달린 포스트가 없습니다.</p>
           )}
         </>
       ) : !query ? (
         <p className="px-4 py-16 text-center text-secondary">
-          Search posts and accounts, or pick a #tag above.
+          포스트와 계정을 검색하거나 위에서 #태그를 선택하세요.
         </p>
       ) : (
         <>
           <p className="px-4 pt-3 text-sm text-secondary">
-            {posts.length} posts · {accounts.length} accounts for “{query}”
+“{query}” 검색 결과 · 포스트 {posts.length}개 · 계정 {accounts.length}개
           </p>
 
           {accounts.length > 0 && (
@@ -114,13 +128,24 @@ export default async function SearchPage({
           {posts.length > 0 ? (
             <>
               <FeedSummary posts={posts} />
-              <Feed posts={posts} highlight={terms} savedKeys={savedKeys} tagMap={tagMap} noteMap={noteMap} />
+              <Feed posts={posts} highlight={terms} savedKeys={savedKeys} tagMap={tagMap} noteMap={noteMap} topicMap={getTopicMap()} />
             </>
           ) : (
-            <p className="px-4 py-16 text-center text-secondary">
-              No saved posts match. Crawl accounts from the manage tab to build the
-              searchable archive.
+            <p className="px-4 py-10 text-center text-secondary">
+              정확히 일치하는 결과가 없습니다{related.length > 0 ? ' — 아래에 의미상 관련된 포스트가 있습니다.' : '.'}
             </p>
+          )}
+
+          {related.length > 0 && (
+            <>
+              <div className="border-t border-border px-4 pb-1 pt-4">
+                <h2 className="text-sm font-semibold text-fg">의미상 관련</h2>
+                <p className="text-xs text-secondary">
+                  “{query}”와 글자 그대로 일치하지는 않지만 의미상 비슷한 포스트 {related.length}개입니다.
+                </p>
+              </div>
+              <Feed posts={related} savedKeys={savedKeys} tagMap={tagMap} noteMap={noteMap} topicMap={getTopicMap()} />
+            </>
           )}
         </>
       )}

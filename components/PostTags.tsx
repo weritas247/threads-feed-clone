@@ -44,9 +44,9 @@ export function PostTags({ post, initialTags = [] }: { post: Post; initialTags?:
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="mr-2 mt-2 inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-secondary transition-colors hover:bg-elevated hover:text-fg"
+        className="mr-2 mt-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-secondary transition-colors hover:bg-elevated hover:text-fg"
       >
-        <TagIcon className="h-[15px] w-[15px]" /> Tag
+        <TagIcon className="h-[15px] w-[15px]" /> 태그
       </button>
     );
   }
@@ -65,7 +65,7 @@ export function PostTags({ post, initialTags = [] }: { post: Post; initialTags?:
             type="button"
             onClick={() => change(t, 'remove')}
             disabled={busy}
-            aria-label={`Remove tag ${t}`}
+            aria-label={`태그 ${t} 삭제`}
             className="text-secondary hover:text-fg"
           >
             ×
@@ -87,7 +87,7 @@ export function PostTags({ post, initialTags = [] }: { post: Post; initialTags?:
           onBlur={() => {
             if (!draft.trim()) setEditing(false);
           }}
-          placeholder="add tag…"
+          placeholder="태그 추가…"
           disabled={busy}
           className="w-24 rounded-full border border-border bg-transparent px-2 py-0.5 text-[12px] text-fg outline-none placeholder:text-secondary/60"
         />
@@ -95,8 +95,8 @@ export function PostTags({ post, initialTags = [] }: { post: Post; initialTags?:
         <button
           type="button"
           onClick={() => setEditing(true)}
-          aria-label="Add tag"
-          title="Add tag"
+          aria-label="태그 추가"
+          title="태그 추가"
           className="rounded-full px-1.5 py-0.5 text-secondary/60 hover:text-fg"
         >
           +

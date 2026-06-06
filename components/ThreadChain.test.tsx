@@ -19,7 +19,7 @@ describe('ThreadChain', () => {
     render(<ThreadChain posts={[child]} />);
     // collapsed: lead-post-first, chain hidden behind a toggle
     expect(screen.queryByText('second in thread')).not.toBeInTheDocument();
-    const toggle = screen.getByRole('button', { name: /show this thread/i });
+    const toggle = screen.getByRole('button', { name: /이 스레드 보기/ });
     fireEvent.click(toggle);
     expect(screen.getByText('second in thread')).toBeInTheDocument();
   });

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Post } from '@/lib/types';
+import type { CaptureState } from '@/lib/captureStateStore';
 import { PostCard } from './PostCard';
 
 const PAGE = 10;
@@ -16,12 +17,18 @@ export function InfiniteFeed({
   savedKeys,
   tagMap,
   noteMap,
+  stateMap,
+  topicMap,
+  preservedKeys,
 }: {
   posts: Post[];
   highlight?: string[];
   savedKeys?: string[];
   tagMap?: Record<string, string[]>;
   noteMap?: Record<string, string>;
+  stateMap?: Record<string, CaptureState>;
+  topicMap?: Record<string, string[]>;
+  preservedKeys?: string[];
 }) {
   const [count, setCount] = useState(PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -47,10 +54,11 @@ export function InfiniteFeed({
   }, [count, posts.length]);
 
   if (posts.length === 0) {
-    return <p className="px-4 py-16 text-center text-secondary">No posts to show.</p>;
+    return <p className="px-4 py-16 text-center text-secondary">표시할 포스트가 없습니다.</p>;
   }
 
   const saved = new Set(savedKeys);
+  const preserved = new Set(preservedKeys);
   const visible = posts.slice(0, count);
   return (
     <div>
@@ -64,6 +72,9 @@ export function InfiniteFeed({
             saved={saved.has(k)}
             tags={tagMap?.[k]}
             note={noteMap?.[k]}
+            state={stateMap?.[k]}
+            topics={topicMap?.[k]}
+            preserved={preserved.has(k)}
           />
         );
       })}

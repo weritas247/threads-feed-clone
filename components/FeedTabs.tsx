@@ -1,15 +1,15 @@
 import Link from 'next/link';
 
 const TABS: { key: string; label: string; href: string }[] = [
-  { key: 'all', label: 'All', href: '/' },
+  { key: 'all', label: '전체', href: '/' },
   { key: 'threads', label: 'Threads', href: '/?tab=threads' },
   { key: 'x', label: 'X', href: '/?tab=x' },
-  { key: 'saved', label: 'Saved', href: '/saved' },
+  { key: 'saved', label: '저장됨', href: '/saved' },
 ];
 
 export function FeedTabs({ active }: { active: string }) {
   return (
-    <div className="sticky top-[57px] z-10 flex border-b border-border bg-bg/80 backdrop-blur">
+    <div className="sticky top-0 z-10 flex border-b border-border bg-bg/95 backdrop-blur">
       {TABS.map((t) => {
         const on = active === t.key;
         return (

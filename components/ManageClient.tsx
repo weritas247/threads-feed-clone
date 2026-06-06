@@ -9,11 +9,11 @@ import { parseAccountInput } from '@/lib/accountInput';
 import { AccountIcon } from './AccountIcon';
 
 const STATUS_LABEL: Record<CrawlStatus, string> = {
-  ok: 'OK',
-  private: 'Private',
-  not_found: 'Not found',
-  blocked: 'Blocked',
-  parse_error: 'Parse error',
+  ok: '정상',
+  private: '비공개',
+  not_found: '없음',
+  blocked: '차단됨',
+  parse_error: '파싱 오류',
 };
 
 const key = (a: { platform: Platform; username: string }) => `${a.platform}:${a.username}`;
@@ -142,7 +142,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
   const visible = ordered.filter((a) => platformFilter === 'all' || a.platform === platformFilter);
 
   const filters: { key: Platform | 'all'; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: accounts.length },
+    { key: 'all', label: '전체', count: accounts.length },
     { key: 'threads', label: 'Threads', count: threadsCount },
     { key: 'x', label: 'X', count: xCount },
   ];
@@ -151,7 +151,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
     <div className="px-4 py-4">
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-secondary">
-          {accounts.length} accounts · {enabledCount} enabled · {vipCount} VIP
+          계정 {accounts.length}개 · 활성 {enabledCount}개 · VIP {vipCount}개
         </p>
         <button
           type="button"
@@ -159,7 +159,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
           disabled={busy !== null}
           className="rounded-full bg-fg px-4 py-1.5 text-sm font-semibold text-bg disabled:opacity-50"
         >
-          {busy === '*all*' ? 'Crawling…' : 'Crawl all enabled'}
+          {busy === '*all*' ? '크롤 중…' : '활성 계정 전체 크롤'}
         </button>
       </div>
 
@@ -167,7 +167,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
         <select
           value={newPlatform}
           onChange={(e) => setNewPlatform(e.target.value as Platform)}
-          aria-label="Platform"
+          aria-label="플랫폼"
           className="rounded-lg border border-border bg-elevated px-2 py-1.5 text-sm text-fg outline-none"
         >
           <option value="threads">Threads</option>
@@ -177,7 +177,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
           value={newName}
           onChange={(e) => onNameChange(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder="@handle or paste a profile URL"
+          placeholder="@핸들 또는 프로필 URL 붙여넣기"
           className="flex-1 rounded-lg border border-border bg-elevated px-3 py-1.5 text-sm text-fg outline-none placeholder:text-secondary"
         />
         <button
@@ -186,7 +186,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
           disabled={adding || !newName.trim()}
           className="rounded-lg border border-border px-4 py-1.5 text-sm font-semibold text-fg disabled:opacity-50"
         >
-          Add
+          추가
         </button>
       </div>
 
@@ -214,12 +214,12 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
         <thead>
           <tr className="text-left text-[11px] uppercase tracking-wider text-secondary">
             <th className="border-b border-border px-2 py-2.5 font-medium" aria-label="VIP" />
-            <th className="border-b border-border px-2 py-2.5 font-medium" aria-label="Enabled" />
-            <th className="border-b border-border px-3 py-2.5 font-medium">Account</th>
-            <th className="border-b border-border px-3 py-2.5 font-medium">Status</th>
-            <th className="border-b border-border px-3 py-2.5 text-right font-medium">Posts</th>
+            <th className="border-b border-border px-2 py-2.5 font-medium" aria-label="활성화" />
+            <th className="border-b border-border px-3 py-2.5 font-medium">계정</th>
+            <th className="border-b border-border px-3 py-2.5 font-medium">상태</th>
+            <th className="border-b border-border px-3 py-2.5 text-right font-medium">게시물</th>
             <th className="whitespace-nowrap border-b border-border px-3 py-2.5 text-right font-medium">
-              Last crawl
+              마지막 크롤
             </th>
             <th className="border-b border-border px-2 py-2.5" />
           </tr>
@@ -231,8 +231,8 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                 <button
                   type="button"
                   onClick={() => toggleVip(a)}
-                  aria-label={a.vip ? `Unmark ${a.username} as VIP` : `Mark ${a.username} as VIP`}
-                  title={a.vip ? 'VIP' : 'Mark VIP'}
+                  aria-label={a.vip ? `${a.username} VIP 해제` : `${a.username} VIP 지정`}
+                  title={a.vip ? 'VIP' : 'VIP 지정'}
                   className={
                     'text-lg leading-none transition-colors ' +
                     (a.vip ? 'text-yellow-400' : 'text-secondary/50 hover:text-fg')
@@ -246,7 +246,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                   type="checkbox"
                   checked={a.enabled}
                   onChange={(e) => toggle(a, e.target.checked)}
-                  aria-label={`Enable ${a.username}`}
+                  aria-label={`${a.username} 활성화`}
                   className="mt-0.5 accent-fg"
                 />
               </td>
@@ -272,7 +272,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                       <button
                         type="button"
                         onClick={() => changeTag(a, t, 'remove')}
-                        aria-label={`Remove tag ${t}`}
+                        aria-label={`태그 ${t} 제거`}
                         className="text-secondary hover:text-fg"
                       >
                         ×
@@ -283,7 +283,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                     value={tagDrafts[key(a)] ?? ''}
                     onChange={(e) => setTagDrafts((d) => ({ ...d, [key(a)]: e.target.value }))}
                     onKeyDown={(e) => e.key === 'Enter' && submitTag(a)}
-                    placeholder="+ tag"
+                    placeholder="+ 태그"
                     className="w-14 rounded-full border border-transparent bg-transparent px-2 py-0.5 text-[11px] text-fg outline-none transition-colors placeholder:text-secondary/60 hover:border-border focus:w-20 focus:border-border"
                   />
                 </div>
@@ -295,7 +295,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                 {a.lastCount ?? '—'}
               </td>
               <td className="whitespace-nowrap border-b border-border px-3 py-3 text-right align-top text-secondary">
-                {a.lastCrawledAt ? relativeTime(Math.floor(a.lastCrawledAt / 1000)) + ' ago' : '—'}
+                {a.lastCrawledAt ? relativeTime(Math.floor(a.lastCrawledAt / 1000)) + ' 전' : '—'}
               </td>
               <td className="border-b border-border px-2 py-3 align-top">
                 <div className="flex items-center justify-end gap-1.5 opacity-80 transition-opacity group-hover:opacity-100">
@@ -303,7 +303,7 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                     href={`/manage/${a.username}?platform=${a.platform}`}
                     className="rounded-md border border-border px-2 py-1 text-xs text-fg hover:bg-elevated"
                   >
-                    Saved
+                    저장됨
                   </Link>
                   <button
                     type="button"
@@ -311,16 +311,16 @@ export function ManageClient({ initial }: { initial: AccountEntry[] }) {
                     disabled={busy !== null}
                     className="rounded-md border border-border px-2 py-1 text-xs text-fg hover:bg-elevated disabled:opacity-50"
                   >
-                    {busy === key(a) ? '…' : 'Crawl'}
+                    {busy === key(a) ? '…' : '크롤'}
                   </button>
                   <button
                     type="button"
                     onClick={() => remove(a)}
-                    aria-label={`Remove ${a.username}`}
-                    title="Remove"
+                    aria-label={`${a.username} 삭제`}
+                    title="삭제"
                     className="rounded-md border border-border px-2 py-1 text-xs text-red-500 hover:bg-red-500/10"
                   >
-                    Remove
+                    삭제
                   </button>
                 </div>
               </td>

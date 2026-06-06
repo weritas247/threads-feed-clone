@@ -1,8 +1,14 @@
-# Social Feed Clone (Threads + X)
+# Social Feed Clone (Threads + X) → Knowledge Base
 
 A Next.js app that scrapes public **Threads** and **X (Twitter)** accounts and
 renders their feed with a Threads-identical UI: an aggregated home feed across a
 configured account list, plus per-account views, with a dark/light theme toggle.
+
+On top of the feed it is a **personal knowledge base**: captured posts are
+*datafied* (AI-extracted summary/topics/entities), *embedded* for semantic search,
+*connected* (related posts + topic hubs), *triaged* (inbox → keep/archive/discard),
+and *queried* (Ask-my-archive — a cited answer drawn only from your own posts). See
+the "Knowledge base" section below and `docs/ROADMAP.md` for the full design.
 
 ## How it works
 
@@ -137,3 +143,113 @@ map is threaded through `Feed`/`InfiniteFeed` → `PostCard` like the bookmark s
 The initial account list lives in `config/accounts.ts` (used to seed the store).
 After first run, manage accounts from `/manage`. Visit `/@<username>` for any single
 public account.
+
+## Knowledge base (datafy → connect → find → use)
+
+The feed is the *capture* layer; these turn the archive into knowledge. All of it works
+**with no API key** (a local fallback embedder + heuristic enricher), and gets richer when
+`GEMINI_API_KEY` (or `ANTHROPIC_API_KEY`) is set.
+
+- **Datafy — `Enrich archive` on `/manage`** (`lib/pipeline.ts`, `app/api/enrich`). Decoupled
+  from crawl on purpose (crawl stays a fast sync save). For each post it stores, *outside* the
+  post (keyed by `platform:id`, surviving re-crawls): a `summary`, normalized `topics`, named
+  `entities`, a content `type`, `lang`, and a `keepScore`. Provider extraction reuses the
+  existing `Summarizer` with a JSON prompt (`lib/ai/enrich.ts`); a heuristic `localEnricher`
+  runs with no key. Records carry a `promptVersion` so a changed prompt only re-enriches stale
+  rows. Runs in bounded, resumable batches with per-item retry/backoff — a transient rate-limit
+  drops nothing (failed items stay pending). Stores: `lib/enrichmentStore.ts`.
+- **Embeddings + semantic search** (`lib/ai/embed.ts`, `lib/embeddingStore.ts`,
+  `lib/semanticSearch.ts`). Each post gets an L2-normalized vector (Gemini
+  `gemini-embedding-001`, or a deterministic feature-hashing local embedder with CJK bigrams
+  so Korean works offline). `/search` shows exact keyword hits **plus** a "Related by meaning"
+  section — recall beyond literal matches. Each vector records the embedder `id`; vectors from
+  different backends are never mixed.
+- **Connect** — every post card has a lazy **Related** panel (`/api/related`, pure vector, no
+  AI call) and **`/topics`** is an auto-generated hub of extracted topics → every post about
+  one. (Distinct from manual `#tags`.)
+- **Triage — `/inbox`** (`lib/captureStateStore.ts`, `/api/posts/state`). The core use-loop the
+  archive was missing: new captures default to `inbox`; per-card **Keep / Archive / Discard**
+  promotes signal out of the noise. State lives outside the post and survives re-crawls.
+- **Use — Ask-my-archive (`/ask`)** (`app/api/ask`). A question → top-k semantic retrieval →
+  a synthesized answer that cites only your own posts (`[n]` → source links). With no key, or
+  if synthesis is rate-limited, it gracefully returns the retrieved sources so the question is
+  never a dead end.
+
+Pipeline order is enrich-then-embed, save-after-success, so a partial run is always safe.
+`npm test` covers the vector math, stores, enricher parsing/retry, and semantic ranking.
+
+## Collections, synthesis & export (capture → create)
+
+Beyond retrieving knowledge, you can *produce* from it.
+
+- **Collections** (`/collections`, `lib/collectionStore.ts`) — bundle posts into a project or
+  reading list. Each post card has a **Collect** button (`components/AddToCollection.tsx`) to add
+  to one or many collections (with inline create). Collections store an ordered list of
+  `platform:id` keys plus a saved synthesis note.
+- **Synthesis** (`/collections/[id]` → ✨ Synthesize, `app/api/collections/synthesize`) — the AI
+  reads the collection's posts and writes ONE coherent Markdown note (overview + grouped themes),
+  which is **saved** on the collection (not ephemeral). Reuses the `Summarizer` abstraction.
+- **Export** (`app/api/collections/export`, `lib/export.ts`) — download a collection as
+  **Markdown** or **Obsidian** (topics/tags as `[[wikilinks]]`), including the synthesis note and
+  per-post body, tags, date, and original link. Filenames are RFC-5987 encoded so non-ASCII
+  (e.g. Korean) collection names download correctly.
+
+## Editable AI topics (human-in-the-loop)
+
+AI-extracted `topics` aren't final. Every card shows them as small chips (distinct from manual
+`#tags`) with **× to remove** and **+ topic** to add (`components/PostTopics.tsx`,
+`app/api/posts/enrichment`). An edited enrichment record is marked `edited`, and the pipeline's
+`freshKeys` treats edited rows as fresh — so manual corrections **survive re-enrichment** instead
+of being overwritten. Topics drive `/topics` and feed into the connection layer.
+
+## Topic & entity hubs, stats, media archiving (P2)
+
+- **Entities (`/entities`)** — the tools / people / companies / concepts the AI extracted,
+  each linking to every post that mentions it (`entityCounts` / `keysWithEntity`). A second
+  connection axis beside topics. The **topic hub** (`/topics`) also shows **related topics** —
+  ones that co-occur in the same posts (`relatedTopics`).
+- **Stats (`/stats`)** — the north-star dashboard: coverage (how much of the archive is
+  enriched/embedded), the signal ratio (share of posts scoring ≥ 0.5 worth-keeping), the triage
+  breakdown, content-type mix, and top topics/entities. `lib/stats.ts` splits a pure
+  `computeStats` (unit-tested) from the store-backed page.
+- **Media archiving (`ARCHIVE_MEDIA=1`)** — opt-in. At crawl time (the only window before the
+  CDN's signed URLs expire), images/videos are downloaded to `data/media/` and the stored post
+  points at a local serving route (`/api/media?f=…`), so the archive doesn't rot. SSRF-guarded
+  to known CDNs, size-capped (10 MB image / 80 MB video), content-addressed by URL hash, and
+  fully best-effort — any failure falls back to the original hotlink and never breaks a crawl.
+  `lib/mediaArchive.ts`, served by `app/api/media`.
+
+## Topic graph, topic merge & deletion preservation (P3)
+
+- **Topic graph (`/graph`)** — the visual peak of the connection layer: a dependency-free,
+  force-directed SVG map of how topics co-occur (`topicGraph` in `enrichmentStore`, rendered by
+  `components/TopicGraphView.tsx` with a tiny spring simulation). Node size = post count, edges =
+  shared posts; clicking a topic opens its hub. Clusters surface themes at a glance.
+- **Topic merge** — on a topic hub, **⤳ Merge** folds the topic into another archive-wide
+  (`mergeTopic`), deduping and marking records `edited` so the merge survives re-enrichment.
+  Human-in-the-loop cleanup of the auto-extracted vocabulary (e.g. fold “ai assistants” → “ai agents”).
+- **Deletion preservation** — each crawl reconciles stored vs. returned post ids
+  (`lib/preservedStore.ts`): a post you had that the source no longer returns is marked
+  **📦 preserved** (a badge on the card), and un-marked if it reappears. A post deleted at the
+  source isn't lost — that's the archive's whole point.
+
+## Backup/restore & timeline (P4)
+
+- **Backup & restore (`/manage` → Backup panel, `app/api/backup`, `lib/backup.ts`)** — the
+  archive is the product, so it's portable and recoverable. **Download** bundles every data file
+  (per-account posts + enrichment, embeddings, tags, notes, collections, triage, preserved,
+  bookmarks, accounts) into one JSON. **Restore** writes them back — path-guarded to known files
+  and `posts/<safe>.json` only (no traversal), version-checked, and it rejects non-backup files.
+- **Timeline (`/timeline`, `lib/timeline.ts`)** — the time axis: a per-day activity strip, an
+  **On this day** section (posts from earlier years sharing today's month-day), and a
+  day-sectioned feed with sticky date headers. Pure, UTC-based, unit-tested helpers.
+
+## Digest & onboarding (P5)
+
+- **Digest (`/digest`, `lib/digest.ts`, `app/api/digest`)** — the review ritual: pick a window
+  (7 / 14 / 30 days), see quick stats (count, accounts, platform split, top authors), and generate
+  a one-click AI **“week in review”** (headline + grouped themes), plus the windowed feed. Pure
+  window/stats helpers are unit-tested; the AI step degrades gracefully without a key.
+- **Onboarding (`components/GettingStarted.tsx`)** — a brand-new (empty) archive shows a four-step
+  getting-started guide (add & crawl → enrich → connect → use) instead of an empty feed, so the
+  core loop is obvious on first run.

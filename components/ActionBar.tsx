@@ -46,10 +46,10 @@ export function ActionBar({ stats, post, saved }: { stats: Stats; post?: Post; s
         body: JSON.stringify({ mode: 'post', items }),
       });
       const data = await res.json();
-      if (!res.ok) setError(data.error ?? 'Summarization failed.');
+      if (!res.ok) setError(data.error ?? '요약에 실패했습니다.');
       else setSummary(data.summary as string);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Request failed.');
+      setError(e instanceof Error ? e.message : '요청에 실패했습니다.');
     } finally {
       setBusy(false);
     }
@@ -67,9 +67,9 @@ export function ActionBar({ stats, post, saved }: { stats: Stats; post?: Post; s
             type="button"
             onClick={summarize}
             disabled={busy}
-            aria-label="Summarize post"
+            aria-label="포스트 요약"
             aria-pressed={open && Boolean(summary)}
-            title="AI summary"
+            title="AI 요약"
             className="rounded-full p-2 -m-2 text-fg hover:bg-elevated disabled:opacity-50"
           >
             <SparkleIcon className={busy ? 'h-[22px] w-[22px] animate-pulse' : undefined} />
