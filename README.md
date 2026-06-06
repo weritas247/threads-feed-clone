@@ -219,12 +219,47 @@ of being overwritten. Topics drive `/topics` and feed into the connection layer.
   fully best-effort — any failure falls back to the original hotlink and never breaks a crawl.
   `lib/mediaArchive.ts`, served by `app/api/media`.
 
-## Topic graph, topic merge & deletion preservation (P3)
+## 3D knowledge graph (`/graph`)
 
-- **Topic graph (`/graph`)** — the visual peak of the connection layer: a dependency-free,
-  force-directed SVG map of how topics co-occur (`topicGraph` in `enrichmentStore`, rendered by
-  `components/TopicGraphView.tsx` with a tiny spring simulation). Node size = post count, edges =
-  shared posts; clicking a topic opens its hub. Clusters surface themes at a glance.
+The visual peak of the connection layer: a **WebGL 3D force-directed graph**
+(`react-force-graph-3d` / Three.js, `components/Graph3D.tsx`) of how the archive's concepts
+relate. Toggle the two axes with the **토픽 / 엔티티** tabs (`?view=entities`).
+
+**Topics vs entities** — the two ways the archive is indexed:
+
+- **Topic** — what a post is *about*: an abstract subject label the AI extracts, e.g.
+  `ai literacy`, `korean market`. Drives `/topics`.
+- **Entity** — a concrete *named thing mentioned* in a post, classified into four types —
+  **tool**, **person**, **company**, **concept** (e.g. `Roman Space Telescope`, `Bill Nelson`,
+  `NASA`, `Chief of Staff`). Drives `/entities`.
+
+  So one post *about* space exploration (topic) might *mention* `NASA` (company), `Bill Nelson`
+  (person) and `Roman Space Telescope` (tool) — those are its entities.
+
+**How to read the graph:**
+
+- **Node size** = post count — how often that topic/entity appears in the archive.
+- **Colour** = category. In **topic** view it's an auto-detected **cluster** (community, via
+  label propagation); in **entity** view it's the **type** (🟡 company · 🔵 tool · 🟢 person ·
+  🟣 concept) — see the legend.
+- **Link (edge)** = **co-occurrence**: two nodes are linked when they appear in the *same
+  post(s)*; thicker = more shared posts.
+- **Distance** = the force layout's equilibrium — connected nodes attract, unconnected ones
+  repel — so a tight clump ≈ strongly related, far apart ≈ unrelated. Read the *topology*
+  (what's linked, what clusters), not exact pixel distances. The layout is deterministic, so
+  the same data lays out the same way each time.
+
+**Interaction:** each cluster is wrapped in a clickable translucent **fog** region — click
+anywhere inside it (no need to hit a tiny node sphere) to fly the camera in and focus that
+cluster; its internal links stay bright while the rest dim. **Back out** with the browser Back
+button, Esc, an empty-space click, or the floating **← 전체 보기** pill. Inside a focused
+cluster, clicking a node opens a **feed popup** (`components/NodePostsPopup.tsx` +
+`/api/node-posts`) that previews that node's posts — each linking to its **source original**,
+plus a link to the full hub feed. A starfield, depth fog, and planet-style node shading give
+the scene its 3D depth cues.
+
+## Topic merge & deletion preservation (P3)
+
 - **Topic merge** — on a topic hub, **⤳ Merge** folds the topic into another archive-wide
   (`mergeTopic`), deduping and marking records `edited` so the merge survives re-enrichment.
   Human-in-the-loop cleanup of the auto-extracted vocabulary (e.g. fold “ai assistants” → “ai agents”).
