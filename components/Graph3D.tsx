@@ -418,12 +418,15 @@ export function Graph3D({
   const nodeObject = useCallback(
     (n: { id: string; count: number; color: string }) => {
       const dim = activeIds ? !activeIds.has(n.id) : false;
-      const key = dim ? '__dim' : n.color;
+      // Keep a per-colour dim material so dimmed nodes hold a MUTED version of their own
+      // type/cluster colour (not flat grey) — the legend colours stay readable when focused.
+      const key = dim ? n.color + '__dim' : n.color;
       let mat = matCache.current.get(key);
       if (!mat) {
-        const base = new THREE.Color(dim ? '#3a3b44' : n.color);
-        const light = base.clone().lerp(new THREE.Color(0xffffff), dim ? 0.12 : 0.55);
-        const dark = base.clone().multiplyScalar(dim ? 0.7 : 0.3);
+        const full = new THREE.Color(n.color);
+        const base = dim ? full.clone().lerp(new THREE.Color('#22232a'), 0.5) : full;
+        const light = base.clone().lerp(new THREE.Color(0xffffff), dim ? 0.18 : 0.55);
+        const dark = base.clone().multiplyScalar(dim ? 0.55 : 0.3);
         const cv = document.createElement('canvas');
         cv.width = 8;
         cv.height = 64;
