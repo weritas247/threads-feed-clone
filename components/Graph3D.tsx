@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import SpriteText from 'three-spritetext';
@@ -103,22 +103,48 @@ export function Graph3D({
         return;
       }
       if (!scene.getObjectByName('starfield')) {
-        const N = 1600;
-        const pos = new Float32Array(N * 3);
-        for (let i = 0; i < N; i++) {
-          // Shell of stars around the graph (avoid a dense core near the nodes).
-          const r = 600 + Math.random() * 2200;
-          const th = Math.random() * Math.PI * 2;
-          const ph = Math.acos(2 * Math.random() - 1);
-          pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
-          pos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
-          pos[i * 3 + 2] = r * Math.cos(ph);
-        }
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        const mat = new THREE.PointsMaterial({ color: 0x9fb0d0, size: 2, sizeAttenuation: true, transparent: true, opacity: 0.7, depthWrite: false });
-        const stars = new THREE.Points(geo, mat);
+        // Soft round glow texture (one canvas, shared by every star → no perf cost).
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = 64;
+        const cx = cv.getContext('2d')!;
+        const g = cx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        g.addColorStop(0, 'rgba(255,255,255,1)');
+        g.addColorStop(0.25, 'rgba(255,255,255,0.9)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        cx.fillStyle = g;
+        cx.fillRect(0, 0, 64, 64);
+        const tex = new THREE.CanvasTexture(cv);
+
+        // Two layers: big bright near stars + smaller dimmer far stars → depth.
+        const layer = (count: number, rMin: number, rMax: number, size: number, opacity: number, color: number) => {
+          const pos = new Float32Array(count * 3);
+          for (let i = 0; i < count; i++) {
+            const r = rMin + Math.random() * (rMax - rMin);
+            const th = Math.random() * Math.PI * 2;
+            const ph = Math.acos(2 * Math.random() - 1);
+            pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+            pos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+            pos[i * 3 + 2] = r * Math.cos(ph);
+          }
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+          const mat = new THREE.PointsMaterial({
+            color,
+            size,
+            map: tex,
+            sizeAttenuation: true,
+            transparent: true,
+            opacity,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+          });
+          return new THREE.Points(geo, mat);
+        };
+        const stars = new THREE.Group();
         stars.name = 'starfield';
+        // Soft glow (the texture) keeps small stars visible without rivalling the nodes.
+        stars.add(layer(300, 800, 1700, 5, 0.8, 0xdfe7ff)); // near
+        stars.add(layer(1300, 1700, 3400, 2.6, 0.5, 0xaab6d8)); // far, dim
         scene.add(stars);
       }
       if (!scene.fog) scene.fog = new THREE.FogExp2(0x0b0c12, 0.0007);
@@ -134,6 +160,17 @@ export function Graph3D({
         sun.position.set(0.6, 1, 0.8);
         sun.name = 'graph-sun';
         scene.add(sun);
+      }
+
+      // Zoom toward the cursor (not the universe origin), so you can zoom into an
+      // off-centre cluster. screenSpacePanning makes drag-pan intuitive.
+      const controls = fgRef.current?.controls?.();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const c = controls as any;
+      if (c && !c.__zoomCursorSet) {
+        c.zoomToCursor = true;
+        c.screenSpacePanning = true;
+        c.__zoomCursorSet = true;
       }
     };
     raf = requestAnimationFrame(add);
@@ -163,6 +200,49 @@ export function Graph3D({
       links: graph.edges.map((e) => ({ source: e.a, target: e.b, weight: e.weight })),
     }),
     [graph, colorOf],
+  );
+
+  // Custom node objects: a gradient-shaded sphere (light top → colour → dark bottom) + its
+  // label. Geometry is shared and one material is cached per colour (≈ a handful total), so
+  // 40 nodes cost almost nothing. Re-runs only when the search highlight changes.
+  const sphereGeo = useMemo(() => new THREE.SphereGeometry(1, 18, 18), []);
+  const matCache = useRef(new Map<string, THREE.Material>());
+  const nodeObject = useCallback(
+    (n: { id: string; count: number; color: string }) => {
+      const dim = matchIds ? !matchIds.has(n.id) : false;
+      const key = dim ? '__dim' : n.color;
+      let mat = matCache.current.get(key);
+      if (!mat) {
+        const base = new THREE.Color(dim ? '#3a3b44' : n.color);
+        const light = base.clone().lerp(new THREE.Color(0xffffff), dim ? 0.12 : 0.55);
+        const dark = base.clone().multiplyScalar(dim ? 0.7 : 0.3);
+        const cv = document.createElement('canvas');
+        cv.width = 8;
+        cv.height = 64;
+        const cx = cv.getContext('2d')!;
+        const g = cx.createLinearGradient(0, 0, 0, 64);
+        g.addColorStop(0, '#' + light.getHexString());
+        g.addColorStop(0.45, '#' + base.getHexString());
+        g.addColorStop(1, '#' + dark.getHexString());
+        cx.fillStyle = g;
+        cx.fillRect(0, 0, 8, 64);
+        mat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(cv), roughness: 0.7, metalness: 0.05 });
+        matCache.current.set(key, mat);
+      }
+      const r = 6 * Math.cbrt(Math.max(1, n.count));
+      const mesh = new THREE.Mesh(sphereGeo, mat);
+      mesh.scale.setScalar(r);
+      const group = new THREE.Group();
+      group.add(mesh);
+      const s = new SpriteText(n.id);
+      s.color = dim ? 'rgba(150,152,160,0.4)' : '#f3f5f7';
+      s.textHeight = 7 + Math.min(7, n.count * 0.7);
+      s.fontWeight = '600';
+      (s as unknown as { position: { y: number } }).position.y = r + 6 + Math.cbrt(Math.max(1, n.count)) * 2;
+      group.add(s);
+      return group;
+    },
+    [matchIds, sphereGeo],
   );
 
   if (graph.nodes.length === 0) {
@@ -218,27 +298,14 @@ export function Graph3D({
           showNavInfo={false}
           enableNodeDrag={false}
           nodeId="id"
-          nodeRelSize={6}
           nodeVal={(n: { count: number }) => Math.max(1, n.count)}
-          nodeColor={(n: { id: string; color: string }) => (matchIds && !matchIds.has(n.id) ? '#33343c' : n.color)}
-          nodeOpacity={0.95}
-          nodeResolution={16}
+          controlType="orbit"
           warmupTicks={40}
           cooldownTicks={120}
           onEngineStop={fitOnce}
           nodeLabel={(n: { id: string; count: number }) => `${n.id} · 포스트 ${n.count}개`}
-          nodeThreeObjectExtend={true}
-          nodeThreeObject={(n: { id: string; count: number; color: string }) => {
-            const dim = matchIds ? !matchIds.has(n.id) : false;
-            const s = new SpriteText(n.id);
-            s.color = dim ? 'rgba(150,152,160,0.4)' : '#f3f5f7';
-            s.textHeight = 7 + Math.min(7, n.count * 0.7);
-            s.fontWeight = '600';
-            // Lift the label just above the sphere (radius grows with count via nodeRelSize).
-            // SpriteText extends THREE.Sprite at runtime; its types omit `position`.
-            (s as unknown as { position: { y: number } }).position.y = 11 + Math.cbrt(Math.max(1, n.count)) * 7;
-            return s;
-          }}
+          nodeThreeObjectExtend={false}
+          nodeThreeObject={nodeObject}
           linkColor={() => (matchIds ? 'rgba(120,125,140,0.08)' : 'rgba(170,175,190,0.22)')}
           linkWidth={(l: { weight: number }) => Math.min(2, 0.4 + (l.weight ?? 1) * 0.4)}
           linkDirectionalParticles={matchIds ? 0 : 2}
