@@ -70,12 +70,6 @@ export function Graph3D({
     return () => clearTimeout(t);
   }, [matchIds]);
 
-  // Fit the whole graph into view once it settles (belt-and-braces with onEngineStop).
-  useEffect(() => {
-    const t = setTimeout(() => fgRef.current?.zoomToFit?.(700, 50), 1200);
-    return () => clearTimeout(t);
-  }, [graph]);
-
   // Map each distinct group → a colour. Entities use fixed type colours; topic clusters
   // get palette colours ordered by cluster size (so the biggest clusters get stable hues).
   const { colorOf, legend } = useMemo(() => {
