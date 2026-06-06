@@ -1,23 +1,32 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 export function SearchBox({ initial = '' }: { initial?: string }) {
   const router = useRouter();
+  const params = useSearchParams();
   const [q, setQ] = useState(initial);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirst = useRef(true);
 
+  // Update only the query (or #tag), PRESERVING any active facet filters / sort already in
+  // the URL — so typing doesn't wipe the user's filters.
   function go(value: string) {
+    const sp = new URLSearchParams(params?.toString() ?? '');
     const v = value.trim();
-    // A leading # searches post tags instead of text.
+    sp.delete('tag');
     if (v.startsWith('#')) {
       const t = v.slice(1).trim().toLowerCase();
-      router.replace(t ? `/search?tag=${encodeURIComponent(t)}` : '/search');
-      return;
+      sp.delete('q');
+      if (t) sp.set('tag', t);
+    } else if (v) {
+      sp.set('q', v);
+    } else {
+      sp.delete('q');
     }
-    router.replace(v ? `/search?q=${encodeURIComponent(v)}` : '/search');
+    const s = sp.toString();
+    router.replace(s ? `/search?${s}` : '/search');
   }
 
   // Live search: debounce navigation as the user types (no Enter needed).
