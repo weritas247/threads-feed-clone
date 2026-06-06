@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import SpriteText from 'three-spritetext';
+import * as THREE from 'three';
 import type { TopicGraph } from '@/lib/enrichmentStore';
 
 // WebGL 3D graph (react-force-graph-3d / Three.js). Real spheres + perspective, built-in
@@ -89,6 +90,42 @@ export function Graph3D({
     }, 250);
     return () => clearTimeout(t);
   }, [matchIds]);
+
+  // Add a starfield + subtle depth fog to the 3D scene so rotation reads as 3D motion
+  // (a flat single-colour background gives no spatial reference). Added once the graph's
+  // Three.js scene exists; persists across topic/entity toggles.
+  useEffect(() => {
+    let raf = 0;
+    const add = () => {
+      const scene = fgRef.current?.scene?.();
+      if (!scene) {
+        raf = requestAnimationFrame(add);
+        return;
+      }
+      if (!scene.getObjectByName('starfield')) {
+        const N = 1600;
+        const pos = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+          // Shell of stars around the graph (avoid a dense core near the nodes).
+          const r = 600 + Math.random() * 2200;
+          const th = Math.random() * Math.PI * 2;
+          const ph = Math.acos(2 * Math.random() - 1);
+          pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+          pos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+          pos[i * 3 + 2] = r * Math.cos(ph);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const mat = new THREE.PointsMaterial({ color: 0x9fb0d0, size: 2, sizeAttenuation: true, transparent: true, opacity: 0.7, depthWrite: false });
+        const stars = new THREE.Points(geo, mat);
+        stars.name = 'starfield';
+        scene.add(stars);
+      }
+      if (!scene.fog) scene.fog = new THREE.FogExp2(0x0b0c12, 0.0006);
+    };
+    raf = requestAnimationFrame(add);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // Map each distinct group → a colour. Entities use fixed type colours; topic clusters
   // get palette colours ordered by cluster size (so the biggest clusters get stable hues).
