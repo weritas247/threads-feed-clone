@@ -43,8 +43,28 @@ export function Graph3D({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null);
+  const fittedRef = useRef(false);
   const [width, setWidth] = useState(640);
   const [search, setSearch] = useState('');
+  const [ready, setReady] = useState(false);
+
+  // Fit the view exactly once, then reveal the canvas — so the user never sees the layout
+  // spread or the camera zoom (the jank); they just see the finished, framed graph fade in.
+  const fitOnce = () => {
+    if (fittedRef.current) return;
+    fittedRef.current = true;
+    fgRef.current?.zoomToFit?.(0, 40); // instant fit (no animation) behind the hidden canvas
+    setTimeout(() => setReady(true), 60);
+  };
+
+  // Reset per graph; a fallback timer covers the rare case onEngineStop never fires.
+  useEffect(() => {
+    fittedRef.current = false;
+    setReady(false);
+    const t = setTimeout(fitOnce, 4000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph]);
 
   useEffect(() => {
     if (!wrapRef.current) return;
@@ -132,6 +152,13 @@ export function Graph3D({
           )}
         </div>
 
+        {/* Hidden until laid out + framed, so the spread/zoom animation is never seen. */}
+        {!ready && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-sm text-white/50">
+            그래프 배치 중…
+          </div>
+        )}
+        <div className="transition-opacity duration-500" style={{ opacity: ready ? 1 : 0 }}>
         <ForceGraph3D
           ref={fgRef}
           graphData={data}
@@ -146,8 +173,9 @@ export function Graph3D({
           nodeColor={(n: { id: string; color: string }) => (matchIds && !matchIds.has(n.id) ? '#33343c' : n.color)}
           nodeOpacity={0.95}
           nodeResolution={16}
+          warmupTicks={40}
           cooldownTicks={120}
-          onEngineStop={() => fgRef.current?.zoomToFit?.(700, 30)}
+          onEngineStop={fitOnce}
           nodeLabel={(n: { id: string; count: number }) => `${n.id} · 포스트 ${n.count}개`}
           nodeThreeObjectExtend={true}
           nodeThreeObject={(n: { id: string; count: number; color: string }) => {
@@ -168,6 +196,7 @@ export function Graph3D({
           linkDirectionalParticleColor={() => 'rgba(200,205,220,0.8)'}
           onNodeClick={(n: { id: string }) => router.push(`${hrefBase}${encodeURIComponent(n.id)}`)}
         />
+        </div>
       </div>
       <p className="mt-2 px-2 text-xs text-secondary">
         {graph.nodes.length}개 · {graph.edges.length}개 연결 · 색 = {kind === 'entity' ? '타입' : '클러스터'}, 크기 =
