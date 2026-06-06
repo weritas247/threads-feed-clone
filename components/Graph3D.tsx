@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
 import SpriteText from 'three-spritetext';
 import * as THREE from 'three';
 import type { TopicGraph } from '@/lib/enrichmentStore';
+import { NodePostsPopup } from './NodePostsPopup';
 
 // WebGL 3D graph (react-force-graph-3d / Three.js). Real spheres + perspective, built-in
 // orbit / zoom / pan, flowing link particles. COLOUR encodes category: a community cluster
@@ -40,7 +40,6 @@ export function Graph3D({
   hrefBase?: string;
   kind?: 'topic' | 'entity';
 }) {
-  const router = useRouter();
   const wrapRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null);
@@ -53,6 +52,7 @@ export function Graph3D({
   const [search, setSearch] = useState('');
   const [ready, setReady] = useState(false);
   const [focusGroup, setFocusGroup] = useState<string | null>(null);
+  const [popupId, setPopupId] = useState<string | null>(null); // node whose feed is previewed
 
   // Fit the view exactly once, then reveal the canvas — so the user never sees the layout
   // spread or the camera zoom (the jank); they just see the finished, framed graph fade in.
@@ -185,7 +185,7 @@ export function Graph3D({
 
   const onNodeClick = (n: { id: string; group: string; x: number; y: number; z: number }) => {
     if (focusGroup === n.group) {
-      router.push(`${hrefBase}${encodeURIComponent(n.id)}`); // in this cluster → open the hub
+      setPopupId(n.id); // already in this cluster → preview the node's feed in a popup
       return;
     }
     enterFocus(n.group, n);
@@ -578,7 +578,7 @@ export function Graph3D({
         {focusGroup ? (
           <>
             <span className="text-fg">「{kind === 'entity' ? ENTITY_LABEL[focusGroup] ?? focusGroup : focusGroup}」</span>{' '}
-            클러스터로 확대됨 · 노드를 클릭하면 허브로, 뒤로가기·빈 곳·Esc로 빠져나오기 ·{' '}
+            클러스터로 확대됨 · 노드를 클릭하면 피드 팝업, 뒤로가기·빈 곳·Esc로 빠져나오기 ·{' '}
             <button
               type="button"
               onClick={() => {
@@ -598,6 +598,15 @@ export function Graph3D({
           </>
         )}
       </p>
+
+      {popupId && (
+        <NodePostsPopup
+          kind={kind === 'entity' ? 'entity' : 'topic'}
+          id={popupId}
+          hubHref={`${hrefBase}${encodeURIComponent(popupId)}`}
+          onClose={() => setPopupId(null)}
+        />
+      )}
     </div>
   );
 }
