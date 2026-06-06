@@ -121,7 +121,20 @@ export function Graph3D({
         stars.name = 'starfield';
         scene.add(stars);
       }
-      if (!scene.fog) scene.fog = new THREE.FogExp2(0x0b0c12, 0.0006);
+      if (!scene.fog) scene.fog = new THREE.FogExp2(0x0b0c12, 0.0007);
+
+      // Planet-like shading: dim the ambient and add one directional "sun" so each sphere
+      // shows a lit side + a shadowed side (a terminator). Lighting only — no per-node
+      // meshes/textures — so it costs nothing per node.
+      if (!scene.getObjectByName('graph-sun')) {
+        scene.children.forEach((c: THREE.Object3D) => {
+          if (c.type === 'AmbientLight') (c as THREE.AmbientLight).intensity = 0.5;
+        });
+        const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+        sun.position.set(0.6, 1, 0.8);
+        sun.name = 'graph-sun';
+        scene.add(sun);
+      }
     };
     raf = requestAnimationFrame(add);
     return () => cancelAnimationFrame(raf);
@@ -234,6 +247,11 @@ export function Graph3D({
           onNodeClick={(n: { id: string }) => router.push(`${hrefBase}${encodeURIComponent(n.id)}`)}
         />
         </div>
+        {/* Vignette shading — edges fall into shadow so the scene reads with depth. */}
+        <div
+          className="pointer-events-none absolute inset-0 z-[5]"
+          style={{ background: 'radial-gradient(ellipse at 50% 45%, transparent 36%, rgba(0,0,0,0.32) 72%, rgba(0,0,0,0.62) 100%)' }}
+        />
       </div>
       <p className="mt-2 px-2 text-xs text-secondary">
         {graph.nodes.length}개 · {graph.edges.length}개 연결 · 색 = {kind === 'entity' ? '타입' : '클러스터'}, 크기 =
