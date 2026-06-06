@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import SpriteText from 'three-spritetext';
 import type { TopicGraph } from '@/lib/enrichmentStore';
 
 // WebGL 3D graph (react-force-graph-3d / Three.js). Real spheres + perspective, built-in
@@ -43,6 +44,7 @@ export function Graph3D({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null);
   const [width, setWidth] = useState(640);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!wrapRef.current) return;
@@ -50,6 +52,29 @@ export function Graph3D({
     ro.observe(wrapRef.current);
     return () => ro.disconnect();
   }, []);
+
+  // In-graph search: ids matching the query are highlighted, the rest dimmed; the camera
+  // flies to fit the matches.
+  const matchIds = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return null;
+    return new Set(graph.nodes.filter((n) => n.id.toLowerCase().includes(q)).map((n) => n.id));
+  }, [search, graph.nodes]);
+
+  useEffect(() => {
+    if (!matchIds || matchIds.size === 0) return;
+    const t = setTimeout(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      fgRef.current?.zoomToFit?.(600, 60, (n: any) => matchIds.has(n.id));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [matchIds]);
+
+  // Fit the whole graph into view once it settles (belt-and-braces with onEngineStop).
+  useEffect(() => {
+    const t = setTimeout(() => fgRef.current?.zoomToFit?.(700, 50), 1200);
+    return () => clearTimeout(t);
+  }, [graph]);
 
   // Map each distinct group → a colour. Entities use fixed type colours; topic clusters
   // get palette colours ordered by cluster size (so the biggest clusters get stable hues).
@@ -98,26 +123,53 @@ export function Graph3D({
           ))}
         </div>
 
+        {/* In-graph search */}
+        <div className="absolute right-3 top-3 z-10 w-44">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`${kind === 'entity' ? '엔티티' : '토픽'} 검색…`}
+            className="w-full rounded-lg border border-white/15 bg-black/50 px-2.5 py-1.5 text-xs text-white outline-none backdrop-blur-sm placeholder:text-white/40"
+          />
+          {matchIds && (
+            <p className="mt-1 px-1 text-[11px] text-white/70">
+              {matchIds.size > 0 ? `${matchIds.size}개 일치` : '일치 없음'}
+            </p>
+          )}
+        </div>
+
         <ForceGraph3D
           ref={fgRef}
           graphData={data}
           width={width}
-          height={460}
+          height={520}
           backgroundColor="#0b0c12"
           showNavInfo={false}
           enableNodeDrag={false}
           nodeId="id"
-          nodeRelSize={5}
+          nodeRelSize={6}
           nodeVal={(n: { count: number }) => Math.max(1, n.count)}
-          nodeColor={(n: { color: string }) => n.color}
+          nodeColor={(n: { id: string; color: string }) => (matchIds && !matchIds.has(n.id) ? '#33343c' : n.color)}
           nodeOpacity={0.95}
           nodeResolution={16}
           cooldownTicks={120}
-          onEngineStop={() => fgRef.current?.zoomToFit?.(500, 50)}
+          onEngineStop={() => fgRef.current?.zoomToFit?.(700, 30)}
           nodeLabel={(n: { id: string; count: number }) => `${n.id} · 포스트 ${n.count}개`}
-          linkColor={() => 'rgba(170,175,190,0.22)'}
+          nodeThreeObjectExtend={true}
+          nodeThreeObject={(n: { id: string; count: number; color: string }) => {
+            const dim = matchIds ? !matchIds.has(n.id) : false;
+            const s = new SpriteText(n.id);
+            s.color = dim ? 'rgba(150,152,160,0.4)' : '#f3f5f7';
+            s.textHeight = 7 + Math.min(7, n.count * 0.7);
+            s.fontWeight = '600';
+            // Lift the label just above the sphere (radius grows with count via nodeRelSize).
+            // SpriteText extends THREE.Sprite at runtime; its types omit `position`.
+            (s as unknown as { position: { y: number } }).position.y = 11 + Math.cbrt(Math.max(1, n.count)) * 7;
+            return s;
+          }}
+          linkColor={() => (matchIds ? 'rgba(120,125,140,0.08)' : 'rgba(170,175,190,0.22)')}
           linkWidth={(l: { weight: number }) => Math.min(2, 0.4 + (l.weight ?? 1) * 0.4)}
-          linkDirectionalParticles={2}
+          linkDirectionalParticles={matchIds ? 0 : 2}
           linkDirectionalParticleWidth={1.4}
           linkDirectionalParticleColor={() => 'rgba(200,205,220,0.8)'}
           onNodeClick={(n: { id: string }) => router.push(`${hrefBase}${encodeURIComponent(n.id)}`)}
