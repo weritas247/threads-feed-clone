@@ -45,6 +45,10 @@ export function Graph3D({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null);
   const fittedRef = useRef(false);
+  // The cluster "fog" sprites (one translucent coloured halo per cluster) + each cluster's
+  // centroid/radius — used to draw the regions and to resolve a click to its cluster.
+  const aurasRef = useRef<THREE.Group | null>(null);
+  const centroidsRef = useRef<Map<string, { x: number; y: number; z: number; r: number }>>(new Map());
   const [width, setWidth] = useState(640);
   const [search, setSearch] = useState('');
   const [ready, setReady] = useState(false);
@@ -118,6 +122,67 @@ export function Graph3D({
       { x: n.x, y: n.y, z: n.z },
       700,
     );
+  };
+
+  // The node nearest a screen point, within a cluster — used to pick a hub when the user
+  // clicks again inside an already-focused cluster's fog.
+  const nearestNodeInGroup = (group: string, px: number, py: number) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fg: any = fgRef.current;
+    if (!fg?.graph2ScreenCoords) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let best: any = null;
+    let bestD = Infinity;
+    for (const n of data.nodes as ReadonlyArray<{ id: string; group: string; x?: number; y?: number; z?: number }>) {
+      if (n.group !== group || typeof n.x !== 'number') continue;
+      const s = fg.graph2ScreenCoords(n.x, n.y, n.z);
+      const d = Math.hypot(s.x - px, s.y - py);
+      if (d < bestD) {
+        bestD = d;
+        best = n;
+      }
+    }
+    return best;
+  };
+
+  // Click the cluster FOG, not a node: raycast the pointer against the translucent cluster
+  // halos. A hit zooms into that cluster (a rough click anywhere in its region works); a
+  // second click inside the focused cluster opens the nearest node's hub; empty space resets.
+  const handleClick = (event: { clientX: number; clientY: number }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fg: any = fgRef.current;
+    const canvas = wrapRef.current?.querySelector('canvas');
+    const grp = aurasRef.current;
+    const reset = () => {
+      setFocusGroup(null);
+      setSearch('');
+      fg?.zoomToFit?.(600, 50);
+    };
+    if (!fg?.camera || !canvas || !grp || grp.children.length === 0) {
+      reset();
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    const ndc = { x: (px / rect.width) * 2 - 1, y: -(py / rect.height) * 2 + 1 };
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc as THREE.Vector2, fg.camera());
+    const hits = ray.intersectObjects(grp.children, false);
+    if (hits.length === 0) {
+      reset(); // clicked the void between clusters → back to the full view
+      return;
+    }
+    const group = hits[0].object.userData.group as string;
+    if (focusGroup === group) {
+      const n = nearestNodeInGroup(group, px, py); // already here → open a hub
+      if (n) router.push(`${hrefBase}${encodeURIComponent(n.id)}`);
+      return;
+    }
+    setSearch('');
+    setFocusGroup(group);
+    const c = centroidsRef.current.get(group);
+    if (c) flyTo(c);
   };
 
   // Add a starfield + subtle depth fog to the 3D scene so rotation reads as 3D motion
@@ -236,6 +301,90 @@ export function Graph3D({
     [graph, colorOf],
   );
 
+  // Soft round haze texture (white → transparent), tinted per cluster on each sprite. One
+  // canvas, shared by every fog blob.
+  const auraTex = useMemo(() => {
+    if (typeof document === 'undefined') return null; // server render — built on the client
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 128;
+    const cx = cv.getContext('2d')!;
+    const g = cx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(255,255,255,0.9)');
+    g.addColorStop(0.45, 'rgba(255,255,255,0.35)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    cx.fillStyle = g;
+    cx.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(cv);
+  }, []);
+
+  // Build one translucent coloured "fog" sprite per cluster, sized to wrap its members, so
+  // clusters read as distinct regions you can click. Rebuilt once the layout is framed
+  // (positions are final) and whenever the data changes (topic ↔ entity toggle).
+  useEffect(() => {
+    if (!ready || !auraTex) return;
+    const scene = fgRef.current?.scene?.();
+    if (!scene) return;
+    const prev = scene.getObjectByName('cluster-auras');
+    if (prev) scene.remove(prev);
+
+    type N = { group: string; count: number; color: string; x?: number; y?: number; z?: number };
+    const nodes = data.nodes as ReadonlyArray<N>;
+    // Pass 1 — centroid + colour per cluster.
+    const acc = new Map<string, { x: number; y: number; z: number; n: number; color: string }>();
+    for (const nd of nodes) {
+      if (typeof nd.x !== 'number') continue;
+      const a = acc.get(nd.group) ?? { x: 0, y: 0, z: 0, n: 0, color: nd.color };
+      a.x += nd.x; a.y += nd.y!; a.z += nd.z!; a.n++;
+      acc.set(nd.group, a);
+    }
+    if (acc.size === 0) return; // positions not ready yet
+    const centroids = new Map<string, { x: number; y: number; z: number; r: number }>();
+    for (const [g, a] of acc) centroids.set(g, { x: a.x / a.n, y: a.y / a.n, z: a.z / a.n, r: 0 });
+    // Pass 2 — radius = farthest member from the centroid (+ its sphere radius).
+    for (const nd of nodes) {
+      if (typeof nd.x !== 'number') continue;
+      const c = centroids.get(nd.group)!;
+      const nodeR = 6 * Math.cbrt(Math.max(1, nd.count));
+      const d = Math.hypot(nd.x - c.x, nd.y! - c.y, nd.z! - c.z) + nodeR;
+      if (d > c.r) c.r = d;
+    }
+
+    const grp = new THREE.Group();
+    grp.name = 'cluster-auras';
+    for (const [g, c] of centroids) {
+      const mat = new THREE.SpriteMaterial({
+        map: auraTex,
+        color: new THREE.Color(acc.get(g)!.color),
+        transparent: true,
+        opacity: 0.18,
+        depthWrite: false,
+        blending: THREE.NormalBlending,
+      });
+      const sp = new THREE.Sprite(mat);
+      sp.userData.group = g;
+      sp.position.set(c.x, c.y, c.z);
+      const size = Math.max(70, c.r + 44) * 2; // diameter; min keeps tiny clusters clickable
+      sp.scale.set(size, size, 1);
+      sp.renderOrder = -1;
+      grp.add(sp);
+    }
+    scene.add(grp);
+    aurasRef.current = grp;
+    centroidsRef.current = centroids;
+  }, [ready, data, auraTex]);
+
+  // Dim the other clusters' fog when one is focused, so the active region stands out.
+  useEffect(() => {
+    const grp = aurasRef.current;
+    if (!grp) return;
+    for (const sp of grp.children) {
+      const m = (sp as THREE.Sprite).material as THREE.SpriteMaterial;
+      // Flown in, the focused cluster's fog sits near the camera and fills the view, so keep
+      // it a faint tint; dim the rest; show all at a readable haze when zoomed out.
+      m.opacity = focusGroup ? (sp.userData.group === focusGroup ? 0.12 : 0.05) : 0.18;
+    }
+  }, [focusGroup, ready]);
+
   // Custom node objects: a gradient-shaded sphere (light top → colour → dark bottom) + its
   // label. Geometry is shared and one material is cached per colour (≈ a handful total), so
   // 40 nodes cost almost nothing. Re-runs only when the search highlight changes.
@@ -350,20 +499,10 @@ export function Graph3D({
           linkDirectionalParticles={activeIds ? 0 : 2}
           linkDirectionalParticleWidth={1.4}
           linkDirectionalParticleColor={() => 'rgba(200,205,220,0.8)'}
-          onNodeClick={(n: { id: string; group: string; x: number; y: number; z: number }) => {
-            // First click on a cluster → fly in close & focus it; click again → open the hub.
-            if (focusGroup === n.group) router.push(`${hrefBase}${encodeURIComponent(n.id)}`);
-            else {
-              setSearch('');
-              setFocusGroup(n.group);
-              flyTo(n);
-            }
-          }}
-          onBackgroundClick={() => {
-            setFocusGroup(null);
-            setSearch('');
-            fgRef.current?.zoomToFit?.(600, 50);
-          }}
+          // Both handlers route to the cluster-fog raycast, so clicking anywhere in a
+          // cluster's coloured region zooms to it — no need to hit a node sphere precisely.
+          onNodeClick={(_n: unknown, event: MouseEvent) => handleClick(event)}
+          onBackgroundClick={(event: MouseEvent) => handleClick(event)}
           onNodeHover={(node: unknown) => {
             const cv = wrapRef.current?.querySelector('canvas');
             if (cv) (cv as HTMLElement).style.cursor = node ? 'pointer' : 'grab';
@@ -380,7 +519,7 @@ export function Graph3D({
         {focusGroup ? (
           <>
             <span className="text-fg">「{kind === 'entity' ? ENTITY_LABEL[focusGroup] ?? focusGroup : focusGroup}」</span>{' '}
-            클러스터로 확대됨 · 노드를 다시 클릭하면 허브로 ·{' '}
+            클러스터로 확대됨 · 영역을 다시 클릭하면 가까운 허브로 ·{' '}
             <button
               type="button"
               onClick={() => {
@@ -396,7 +535,7 @@ export function Graph3D({
         ) : (
           <>
             {graph.nodes.length}개 · {graph.edges.length}개 연결 · 색 = {kind === 'entity' ? '타입' : '클러스터'}, 크기 = 포스트
-            수 · 노드를 클릭하면 클러스터로 확대 · 드래그 회전 · 휠 줌
+            수 · 클러스터 영역(컬러 포그)을 클릭하면 확대 · 드래그 회전 · 휠 줌
           </>
         )}
       </p>
