@@ -458,6 +458,16 @@ export function Graph3D({
     [activeIds, sphereGeo],
   );
 
+  // Is a link entirely inside the active (focused/searched) set? Such links stay bright; the
+  // rest fade. (After layout the lib swaps source/target for the node objects.)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const linkInFocus = (l: any) => {
+    if (!activeIds) return false;
+    const s = typeof l.source === 'object' && l.source ? l.source.id : l.source;
+    const t = typeof l.target === 'object' && l.target ? l.target.id : l.target;
+    return activeIds.has(s) && activeIds.has(t);
+  };
+
   if (graph.nodes.length === 0) {
     return (
       <p className="px-4 py-16 text-center text-secondary">
@@ -530,9 +540,19 @@ export function Graph3D({
           nodeLabel={(n: { id: string; count: number }) => `${n.id} · 포스트 ${n.count}개`}
           nodeThreeObjectExtend={false}
           nodeThreeObject={nodeObject}
-          linkColor={() => (activeIds ? 'rgba(120,125,140,0.08)' : 'rgba(170,175,190,0.22)')}
-          linkWidth={(l: { weight: number }) => Math.min(2, 0.4 + (l.weight ?? 1) * 0.4)}
-          linkDirectionalParticles={activeIds ? 0 : 2}
+          // Zoomed into a cluster, keep its internal links bright (so the connections stay
+          // visible) and fade only the unrelated ones — not every link.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          linkColor={(l: any) =>
+            !activeIds ? 'rgba(170,175,190,0.22)' : linkInFocus(l) ? 'rgba(210,215,230,0.6)' : 'rgba(120,125,140,0.05)'
+          }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          linkWidth={(l: any) => {
+            const base = Math.min(2, 0.4 + (l.weight ?? 1) * 0.4);
+            return activeIds && linkInFocus(l) ? base + 0.7 : base;
+          }}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          linkDirectionalParticles={(l: any) => (!activeIds ? 2 : linkInFocus(l) ? 2 : 0)}
           linkDirectionalParticleWidth={1.4}
           linkDirectionalParticleColor={() => 'rgba(200,205,220,0.8)'}
           // Click a cluster's coloured region (its fog) to zoom in — no need to hit a node
