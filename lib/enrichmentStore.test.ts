@@ -17,6 +17,7 @@ import {
   keysWithEntity,
   topicGraph,
   entityGraph,
+  detectClusters,
   mergeTopic,
 } from './enrichmentStore';
 import type { Enrichment } from './types';
@@ -162,6 +163,35 @@ describe('enrichmentStore', () => {
     expect(g.nodes.map((n) => n.id).sort()).toEqual(['ai agents', 'rag']);
     // 'ai agents' + 'rag' co-occur in 2 posts → one edge, weight 2, endpoints intact
     expect(g.edges).toEqual([{ a: 'ai agents', b: 'rag', weight: 2 }]);
+  });
+
+  it('detectClusters groups connected nodes and names each by its top-count member', () => {
+    const nodes = [
+      { id: 'a', count: 3 },
+      { id: 'b', count: 1 },
+      { id: 'c', count: 2 },
+      { id: 'd', count: 1 },
+    ];
+    const edges = [
+      { a: 'a', b: 'b' },
+      { a: 'c', b: 'd' },
+    ];
+    const clusters = detectClusters(nodes, edges);
+    // a-b form one cluster (named 'a', the bigger), c-d another (named 'c')
+    expect(clusters.get('a')).toBe('a');
+    expect(clusters.get('b')).toBe('a');
+    expect(clusters.get('c')).toBe('c');
+    expect(clusters.get('d')).toBe('c');
+  });
+
+  it('topicGraph and entityGraph attach a group to each node', () => {
+    const ent = (names: string[]) => names.map((n) => ({ name: n, type: 'tool' as const }));
+    setEnrichments([
+      ['threads:1', mk({ topics: ['ai', 'rag'], entities: ent(['Claude']) })],
+      ['threads:2', mk({ topics: ['ai', 'rag'], entities: ent(['Claude']) })],
+    ]);
+    expect(topicGraph(10, 2).nodes.every((n) => typeof n.group === 'string')).toBe(true);
+    expect(entityGraph(10, 1).nodes.find((n) => n.id === 'Claude')?.group).toBe('tool');
   });
 
   it('entityGraph builds nodes + co-occurrence edges from entities', () => {

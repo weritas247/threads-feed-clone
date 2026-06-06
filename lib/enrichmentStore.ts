@@ -178,8 +178,61 @@ export function relatedTopics(topic: string, limit = 12): Array<{ topic: string;
 // count), edges connect topics that appear together, weighted by shared-post count. Only
 // edges between included nodes are returned. Pure aggregation over the enrichment map.
 export interface TopicGraph {
-  nodes: Array<{ id: string; count: number }>;
+  // `group` colours the node: a community cluster id for topics, an entity type for entities.
+  nodes: Array<{ id: string; count: number; group: string }>;
   edges: Array<{ a: string; b: string; weight: number }>;
+}
+
+// Label-propagation community detection: each node adopts the most common label among its
+// neighbours, repeated until stable. Communities are then named by their highest-count
+// member, so colours map to recognisable clusters. Deterministic (fixed node order).
+export function detectClusters(
+  nodes: Array<{ id: string; count: number }>,
+  edges: Array<{ a: string; b: string }>,
+): Map<string, string> {
+  const adj = new Map<string, Set<string>>();
+  for (const n of nodes) adj.set(n.id, new Set());
+  for (const e of edges) {
+    adj.get(e.a)?.add(e.b);
+    adj.get(e.b)?.add(e.a);
+  }
+  const ids = nodes.map((n) => n.id);
+  const label = new Map(ids.map((id) => [id, id]));
+  for (let round = 0; round < 8; round++) {
+    let changed = false;
+    for (const id of ids) {
+      const neigh = adj.get(id);
+      if (!neigh || neigh.size === 0) continue;
+      const tally = new Map<string, number>();
+      for (const nb of neigh) {
+        const l = label.get(nb)!;
+        tally.set(l, (tally.get(l) ?? 0) + 1);
+      }
+      let best = label.get(id)!;
+      let bestC = -1;
+      for (const [l, c] of tally) {
+        if (c > bestC || (c === bestC && l < best)) {
+          best = l;
+          bestC = c;
+        }
+      }
+      if (best !== label.get(id)) {
+        label.set(id, best);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  // Name each community by its highest-count member.
+  const repByLabel = new Map<string, { id: string; count: number }>();
+  for (const n of nodes) {
+    const l = label.get(n.id)!;
+    const cur = repByLabel.get(l);
+    if (!cur || n.count > cur.count) repByLabel.set(l, { id: n.id, count: n.count });
+  }
+  const out = new Map<string, string>();
+  for (const n of nodes) out.set(n.id, repByLabel.get(label.get(n.id)!)!.id);
+  return out;
 }
 
 export function topicGraph(maxNodes = 40, minEdgeWeight = 2): TopicGraph {
@@ -202,7 +255,12 @@ export function topicGraph(maxNodes = 40, minEdgeWeight = 2): TopicGraph {
     }
   }
   const edges = [...pairs.values()].filter((e) => e.weight >= minEdgeWeight);
-  return { nodes: nodes.map((n) => ({ id: n.topic, count: n.count })), edges };
+  const idNodes = nodes.map((n) => ({ id: n.topic, count: n.count }));
+  const clusters = detectClusters(idNodes, edges);
+  return {
+    nodes: idNodes.map((n) => ({ ...n, group: clusters.get(n.id) ?? n.id })),
+    edges,
+  };
 }
 
 // Same shape as the topic graph, but nodes are ENTITIES and edges are entity co-occurrence
@@ -224,7 +282,8 @@ export function entityGraph(maxNodes = 40, minEdgeWeight = 2): TopicGraph {
     }
   }
   const edges = [...pairs.values()].filter((e) => e.weight >= minEdgeWeight);
-  return { nodes: nodes.map((n) => ({ id: n.name, count: n.count })), edges };
+  // Entities colour by TYPE (tool/person/company/concept) — semantic and already in data.
+  return { nodes: nodes.map((n) => ({ id: n.name, count: n.count, group: n.type })), edges };
 }
 
 // Entity name → {type, count} across all enrichment, for the /entities hub. A name can

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { topicGraph, entityGraph } from '@/lib/enrichmentStore';
-import { TopicGraphView } from '@/components/TopicGraphView';
+import { Graph3D } from '@/components/Graph3D';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +22,8 @@ export default async function GraphPage({
       <div className="px-4 pt-4">
         <h1 className="text-xl font-bold text-fg">그래프</h1>
         <p className="text-sm text-secondary">
-          {isEntities ? '엔티티' : '토픽'}가 어떻게 연결되는지 — 군집이 주제를 드러냅니다. 노드에 마우스를
-          올려 이웃을 보고, 클릭해 허브로.
+          {isEntities ? '엔티티' : '토픽'}가 어떻게 연결되는지 — 색이 {isEntities ? '타입' : '군집'}을, 크기가
+          포스트 수를 나타냅니다. 드래그로 회전, 휠로 줌, 노드를 클릭하면 허브로.
         </p>
       </div>
 
@@ -48,10 +48,10 @@ export default async function GraphPage({
         })}
       </div>
 
-      <TopicGraphView
+      <Graph3D
         graph={graph}
         hrefBase={isEntities ? '/entities?e=' : '/topics?t='}
-        unit={isEntities ? '엔티티' : '토픽'}
+        kind={isEntities ? 'entity' : 'topic'}
       />
     </>
   );
