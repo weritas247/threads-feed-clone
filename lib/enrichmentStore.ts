@@ -205,6 +205,28 @@ export function topicGraph(maxNodes = 40, minEdgeWeight = 2): TopicGraph {
   return { nodes: nodes.map((n) => ({ id: n.topic, count: n.count })), edges };
 }
 
+// Same shape as the topic graph, but nodes are ENTITIES and edges are entity co-occurrence
+// in the same post — a second connection axis to visualise (tools/people/companies/concepts).
+export function entityGraph(maxNodes = 40, minEdgeWeight = 2): TopicGraph {
+  const nodes = entityCounts().slice(0, maxNodes);
+  const included = new Set(nodes.map((n) => n.name));
+  const pairs = new Map<string, { a: string; b: string; weight: number }>();
+  for (const e of Object.values(getEnrichmentMap())) {
+    const present = [...new Set(e.entities.map((en) => en.name).filter((n) => included.has(n)))];
+    for (let i = 0; i < present.length; i++) {
+      for (let j = i + 1; j < present.length; j++) {
+        const [a, b] = present[i] < present[j] ? [present[i], present[j]] : [present[j], present[i]];
+        const key = `${a}\t${b}`;
+        const cur = pairs.get(key);
+        if (cur) cur.weight++;
+        else pairs.set(key, { a, b, weight: 1 });
+      }
+    }
+  }
+  const edges = [...pairs.values()].filter((e) => e.weight >= minEdgeWeight);
+  return { nodes: nodes.map((n) => ({ id: n.name, count: n.count })), edges };
+}
+
 // Entity name → {type, count} across all enrichment, for the /entities hub. A name can
 // appear with one type (first seen wins); sorted by count desc.
 export function entityCounts(): Array<{ name: string; type: string; count: number }> {

@@ -69,7 +69,7 @@ export default function StatsPage() {
       <p className="text-sm text-secondary">수집한 내용이 쓸 만한, 연결된 지식으로 바뀌고 있나요?</p>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <Stat value={s.total} label="수집된 포스트" />
+        <Stat value={s.total} label="수집된 포스트" href="/" />
         <Stat value={`${s.coverage.enrichedPct}%`} label="데이터화" />
         <Stat value={`${Math.round(s.signal.avgKeepScore * 100)}%`} label="평균 신호" />
         <Stat value={s.topics.distinct} label="토픽" href="/topics" />
@@ -78,7 +78,14 @@ export default function StatsPage() {
       </div>
 
       <section className="mt-6">
-        <h2 className="mb-1 text-sm font-semibold text-fg">커버리지</h2>
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-fg">커버리지</h2>
+          {s.coverage.enriched < s.total && (
+            <Link href="/manage" className="text-xs text-secondary hover:text-fg">
+              보강하기 →
+            </Link>
+          )}
+        </div>
         <Bar value={s.coverage.enriched} max={s.total} label="보강됨 (AI 토픽/요약)" sub={`/ ${s.total}`} />
         <Bar value={s.coverage.embedded} max={s.total} label="임베딩됨 (의미 검색)" sub={`/ ${s.total}`} />
         <p className="mt-1 text-xs text-secondary">
@@ -88,20 +95,40 @@ export default function StatsPage() {
       </section>
 
       <section className="mt-5">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-fg">트리아지</h2>
-          <Link href="/inbox" className="text-xs text-secondary hover:text-fg">
-            받은함으로 →
-          </Link>
-        </div>
+        <h2 className="mb-1 text-sm font-semibold text-fg">트리아지</h2>
         {(['inbox', 'kept', 'archived', 'discarded'] as CaptureState[]).map((st) => (
-          <Bar key={st} value={s.triage[st]} max={s.total} label={TRIAGE_LABEL[st]} />
+          <Link
+            key={st}
+            href={`/inbox?state=${st}`}
+            className="-mx-2 block rounded-lg px-2 transition-colors hover:bg-elevated"
+            title={`${TRIAGE_LABEL[st]} 보기`}
+          >
+            <Bar value={s.triage[st]} max={s.total} label={TRIAGE_LABEL[st]} />
+          </Link>
         ))}
         <p className="mt-1 text-xs text-secondary">
           신호 비율: 보강된 포스트 {s.coverage.enriched}개 중 {s.signal.highSignal}개가
-          킵 점수 0.5 이상입니다 ({s.signal.highSignalPct}%).
+          킵 점수 0.5 이상입니다 ({s.signal.highSignalPct}%). 막대를 클릭하면 해당 분류로 이동합니다.
         </p>
       </section>
+
+      {s.topAuthors.length > 0 && (
+        <section className="mt-5">
+          <h2 className="mb-1 text-sm font-semibold text-fg">상위 계정</h2>
+          <div className="flex flex-wrap gap-2">
+            {s.topAuthors.map((a) => (
+              <Link
+                key={`${a.platform}:${a.username}`}
+                href={a.platform === 'x' ? `/x/${a.username}` : `/@${a.username}`}
+                className="rounded-full border border-border px-3 py-1 text-xs text-secondary hover:text-fg"
+              >
+                @{a.username} <span className="opacity-60">{a.count}</span>
+                <span className="ml-1 text-[10px] opacity-50">{a.platform === 'x' ? 'X' : 'Th'}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {s.byType.length > 0 && (
         <section className="mt-5">

@@ -22,3 +22,9 @@ body {
   color: rgb(var(--fg));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
+
+/* Indeterminate loading bar for tab navigation (FeedTabs). */
+@keyframes loadbar {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(420%); }
+}

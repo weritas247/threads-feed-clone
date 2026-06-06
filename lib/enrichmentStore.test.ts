@@ -16,6 +16,7 @@ import {
   entityCounts,
   keysWithEntity,
   topicGraph,
+  entityGraph,
   mergeTopic,
 } from './enrichmentStore';
 import type { Enrichment } from './types';
@@ -161,5 +162,17 @@ describe('enrichmentStore', () => {
     expect(g.nodes.map((n) => n.id).sort()).toEqual(['ai agents', 'rag']);
     // 'ai agents' + 'rag' co-occur in 2 posts → one edge, weight 2, endpoints intact
     expect(g.edges).toEqual([{ a: 'ai agents', b: 'rag', weight: 2 }]);
+  });
+
+  it('entityGraph builds nodes + co-occurrence edges from entities', () => {
+    const ent = (names: string[]) => names.map((n) => ({ name: n, type: 'tool' as const }));
+    setEnrichments([
+      ['threads:1', mk({ entities: ent(['Claude', 'Cursor']) })],
+      ['threads:2', mk({ entities: ent(['Claude', 'Cursor']) })],
+      ['threads:3', mk({ entities: ent(['Claude']) })],
+    ]);
+    const g = entityGraph(10, 2);
+    expect(g.nodes.find((n) => n.id === 'Claude')?.count).toBe(3);
+    expect(g.edges).toEqual([{ a: 'Claude', b: 'Cursor', weight: 2 }]);
   });
 });

@@ -7,6 +7,7 @@ import { topicCounts, keysWithTopic, getTopicMap, relatedTopics } from '@/lib/en
 import { Feed } from '@/components/Feed';
 import { FeedSummary } from '@/components/FeedSummary';
 import { TopicMerge } from '@/components/TopicMerge';
+import { TopicCloud } from '@/components/TopicCloud';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,23 +48,7 @@ export default async function TopicsPage({
           아직 토픽이 없습니다. 크롤 관리 페이지에서 "보강 진행"을 실행해 포스트를 데이터화하세요.
         </p>
       ) : (
-        <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">
-          {topics.map(({ topic, count }) => {
-            const on = active === topic;
-            return (
-              <Link
-                key={topic}
-                href={`/topics?t=${encodeURIComponent(topic)}`}
-                className={
-                  'rounded-full border px-3 py-1 text-xs ' +
-                  (on ? 'border-fg bg-fg text-bg' : 'border-border text-secondary hover:text-fg')
-                }
-              >
-                {topic} <span className="opacity-60">{count}</span>
-              </Link>
-            );
-          })}
-        </div>
+        <TopicCloud topics={topics} active={active} />
       )}
 
       {active && (

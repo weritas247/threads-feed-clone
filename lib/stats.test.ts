@@ -71,4 +71,9 @@ describe('computeStats', () => {
     expect(s.entities.distinct).toBe(1);
     expect(s.collections).toEqual({ count: 2, synthesized: 1 });
   });
+
+  it('ranks top authors by capture count, platform-scoped', () => {
+    expect(s.topAuthors[0]).toEqual({ username: 'u', platform: 'threads', count: 2 });
+    expect(s.topAuthors).toContainEqual({ username: 'u', platform: 'x', count: 1 });
+  });
 });

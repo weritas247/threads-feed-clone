@@ -15,6 +15,7 @@ export interface KnowledgeStats {
   topics: { distinct: number; top: Array<{ topic: string; count: number }> };
   entities: { distinct: number; top: Array<{ name: string; count: number }> };
   collections: { count: number; synthesized: number };
+  topAuthors: Array<{ username: string; platform: 'threads' | 'x'; count: number }>;
 }
 
 export interface StatsInput {
@@ -39,6 +40,7 @@ export function computeStats(input: StatsInput): KnowledgeStats {
   const byPlatform = { threads: 0, x: 0 };
   const triage: Record<CaptureState, number> = { inbox: 0, kept: 0, archived: 0, discarded: 0 };
   const typeCounts: Record<string, number> = {};
+  const authorCounts = new Map<string, { username: string; platform: 'threads' | 'x'; count: number }>();
   let enriched = 0;
   let embedded = 0;
   let keepSum = 0;
@@ -49,6 +51,10 @@ export function computeStats(input: StatsInput): KnowledgeStats {
     const k = keyOf(p);
     byPlatform[p.platform]++;
     triage[state[k] ?? 'inbox']++;
+    const ak = `${p.platform}:${p.author.username.toLowerCase()}`;
+    const cur = authorCounts.get(ak);
+    if (cur) cur.count++;
+    else authorCounts.set(ak, { username: p.author.username, platform: p.platform, count: 1 });
     if (embeddedKeys.has(k)) embedded++;
     const e = enrichment[k];
     // "enriched" = has a real (non-stale, non-manual-only) enrichment at current prompt,
@@ -106,5 +112,8 @@ export function computeStats(input: StatsInput): KnowledgeStats {
       count: collections.length,
       synthesized: collections.filter((c) => c.note.trim().length > 0).length,
     },
+    topAuthors: [...authorCounts.values()]
+      .sort((a, b) => b.count - a.count || a.username.localeCompare(b.username))
+      .slice(0, 8),
   };
 }
