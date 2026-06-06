@@ -476,7 +476,7 @@ export function Graph3D({
       s.color = dim ? 'rgba(170,173,182,0.55)' : '#eef1f5';
       // One uniform size for every label (no count variance); a per-frame rAF then keeps it a
       // CONSTANT on-screen size regardless of camera distance (see the label-scaling effect).
-      s.textHeight = 5;
+      s.textHeight = 10;
       s.fontWeight = '600';
       // A subtle dark chip so an overlapping label stays readable (nearer one draws on top).
       s.backgroundColor = dim ? 'rgba(9,10,15,0.4)' : 'rgba(9,10,15,0.62)';
