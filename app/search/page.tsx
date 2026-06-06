@@ -19,11 +19,13 @@ import {
   type SearchContext,
   type SortMode,
 } from '@/lib/searchQuery';
+import { parseQuery, mergeFilters } from '@/lib/queryParse';
 import { getAccounts } from '@/lib/accountStore';
 import { Feed } from '@/components/Feed';
 import { FeedSummary } from '@/components/FeedSummary';
 import { SearchBox } from '@/components/SearchBox';
 import { SearchFacets } from '@/components/SearchFacets';
+import { SaveSearchButton } from '@/components/SaveSearchButton';
 import { AccountIcon } from '@/components/AccountIcon';
 import { Highlight } from '@/components/Highlight';
 import type { Post } from '@/lib/types';
@@ -41,9 +43,13 @@ function qs(params: SP): string {
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const query = (sp.q ?? '').trim();
+  const rawQ = (sp.q ?? '').trim();
+  // The query box supports operators (@author, topic:ai, after:…). Parse them out: free
+  // TEXT drives ranking; inline FILTERS merge with (and override) the facet URL params.
+  const parsed = parseQuery(rawQ);
+  const query = parsed.text;
   const terms = tokenize(query);
-  const filters = parseFilters(sp);
+  const filters = mergeFilters(parseFilters(sp), parsed.filters);
   const nFilters = activeFilterCount(filters);
 
   const embedder = getEmbedder();
@@ -54,6 +60,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     notes: getNoteMap(),
     vectors: getEmbeddingMap(),
     embedderId: embedder.id,
+    preserved: new Set(getPreservedKeys()),
   };
 
   const all = allKnowledgePosts();
@@ -99,7 +106,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <div className="px-4 pt-4">
-        <SearchBox initial={query} />
+        <SearchBox initial={rawQ} />
       </div>
 
       <SearchFacets params={baseParams} facets={facets} />
@@ -110,13 +117,16 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           {query && <> · “{query}”</>}
           {nFilters > 0 && <> · 필터 {nFilters}</>}
         </span>
-        {(query || nFilters > 0) && (
-          <Link
-            href={query ? `/search?q=${encodeURIComponent(query)}` : '/search'}
-            className="text-xs text-secondary hover:text-fg"
-          >
-            필터 초기화
-          </Link>
+        {(rawQ || nFilters > 0) && (
+          <>
+            <Link
+              href={rawQ ? `/search?q=${encodeURIComponent(rawQ)}` : '/search'}
+              className="text-xs text-secondary hover:text-fg"
+            >
+              필터 초기화
+            </Link>
+            <SaveSearchButton query={qs(baseParams).replace(/^\/search\??/, '')} suggestedName={query || '저장된 검색'} />
+          </>
         )}
         <span className="ml-auto flex items-center gap-0.5 text-xs">
           {SORTS.map((s) => {

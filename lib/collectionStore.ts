@@ -12,8 +12,9 @@ export interface Collection {
   id: string;
   name: string;
   createdAt: number; // unix seconds
-  postKeys: string[]; // `platform:id`, insertion order
+  postKeys: string[]; // `platform:id`, insertion order (manual collections)
   note: string; // saved synthesis (empty until generated)
+  query?: string; // a saved search string (URL params) → SMART collection, resolved live
 }
 
 type CollectionMap = Record<string, Collection>;
@@ -54,14 +55,17 @@ export function getCollection(id: string): Collection | undefined {
   return load()[id];
 }
 
-export function createCollection(name: string): Collection {
+// Create a collection. Pass `query` (a saved search string) to make a SMART collection
+// that resolves to matching posts live instead of holding a manual list.
+export function createCollection(name: string, query?: string): Collection {
   const map = load();
   const c: Collection = {
     id: newId(),
-    name: name.trim() || 'Untitled',
+    name: name.trim() || (query ? '저장된 검색' : 'Untitled'),
     createdAt: Math.floor(Date.now() / 1000),
     postKeys: [],
     note: '',
+    ...(query ? { query } : {}),
   };
   map[c.id] = c;
   save(map);

@@ -80,9 +80,12 @@ export function CollectionsClient({ initial }: { initial: Collection[] }) {
                 />
               ) : (
                 <Link href={`/collections/${c.id}`} className="min-w-0 flex-1">
-                  <span className="font-medium text-fg hover:underline">{c.name}</span>
+                  <span className="font-medium text-fg hover:underline">
+                    {c.query && '🔍 '}
+                    {c.name}
+                  </span>
                   <span className="ml-2 text-xs text-secondary">
-                    게시물 {c.postKeys.length}개 · {relativeTime(c.createdAt)}
+                    {c.query ? '저장된 검색' : `게시물 ${c.postKeys.length}개`} · {relativeTime(c.createdAt)}
                     {c.note ? ' · 정리됨' : ''}
                   </span>
                 </Link>

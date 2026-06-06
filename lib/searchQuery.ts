@@ -18,6 +18,7 @@ export interface SearchFilters {
   after?: number; // unix sec, inclusive
   before?: number; // unix sec, inclusive (end of day)
   tag?: string; // manual tag
+  has?: 'media' | 'note' | 'preserved';
 }
 
 export type SortMode = 'relevance' | 'recent' | 'engagement';
@@ -29,6 +30,7 @@ export interface SearchContext {
   notes: Record<string, string>;
   vectors: Record<string, { id: string; vector: number[] }>;
   embedderId: string;
+  preserved?: Set<string>;
 }
 
 const keyOf = (p: Post): string => `${p.platform}:${p.id}`;
@@ -51,6 +53,7 @@ export function parseFilters(sp: Record<string, string | undefined>): SearchFilt
   if (sp.state && STATES.has(sp.state)) f.state = sp.state as CaptureState;
   if (sp.author) f.author = sp.author.toLowerCase();
   if (sp.tag) f.tag = sp.tag.toLowerCase();
+  if (sp.has === 'media' || sp.has === 'note' || sp.has === 'preserved') f.has = sp.has;
   const after = parseDate(sp.after);
   if (after) f.after = after;
   const before = parseDate(sp.before);
@@ -71,6 +74,9 @@ export function applyFilters(posts: Post[], f: SearchFilters, ctx: SearchContext
     if (f.before && p.createdAt > f.before + 86399) return false;
     if (f.state && (ctx.state[k] ?? 'inbox') !== f.state) return false;
     if (f.tag && !(ctx.tagMap[k] ?? []).includes(f.tag)) return false;
+    if (f.has === 'media' && p.media.length === 0) return false;
+    if (f.has === 'note' && !(ctx.notes[k] ?? '').trim()) return false;
+    if (f.has === 'preserved' && !ctx.preserved?.has(k)) return false;
     const e = ctx.enrichment[k];
     if (f.type && (!e || e.type !== f.type)) return false;
     if (f.topic && (!e || !e.topics.includes(f.topic))) return false;

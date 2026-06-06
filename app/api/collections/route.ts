@@ -22,10 +22,11 @@ export async function POST(request: Request): Promise<Response> {
     action?: 'create' | 'rename' | 'delete';
     id?: string;
     name?: string;
+    query?: string;
   };
   switch (body.action) {
     case 'create': {
-      const c = createCollection(body.name ?? '');
+      const c = createCollection(body.name ?? '', body.query);
       return Response.json({ collection: c, collections: listCollections() });
     }
     case 'rename': {

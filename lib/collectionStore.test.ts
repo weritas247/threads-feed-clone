@@ -35,6 +35,13 @@ describe('collectionStore', () => {
     expect(createCollection('   ').name).toBe('Untitled');
   });
 
+  it('creates a smart collection carrying its saved query', () => {
+    const c = createCollection('AI 튜토리얼', 'q=ai&type=tutorial');
+    expect(c.query).toBe('q=ai&type=tutorial');
+    expect(getCollection(c.id)?.query).toBe('q=ai&type=tutorial');
+    expect(createCollection('manual').query).toBeUndefined();
+  });
+
   it('adds posts idempotently in insertion order', () => {
     const c = createCollection('x');
     addToCollection(c.id, 'threads', '1');
