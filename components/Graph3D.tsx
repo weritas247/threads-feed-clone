@@ -124,66 +124,91 @@ export function Graph3D({
     );
   };
 
-  // The node nearest a screen point, within a cluster — used to pick a hub when the user
-  // clicks again inside an already-focused cluster's fog.
-  const nearestNodeInGroup = (group: string, px: number, py: number) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fg: any = fgRef.current;
-    if (!fg?.graph2ScreenCoords) return null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let best: any = null;
-    let bestD = Infinity;
-    for (const n of data.nodes as ReadonlyArray<{ id: string; group: string; x?: number; y?: number; z?: number }>) {
-      if (n.group !== group || typeof n.x !== 'number') continue;
-      const s = fg.graph2ScreenCoords(n.x, n.y, n.z);
-      const d = Math.hypot(s.x - px, s.y - py);
-      if (d < bestD) {
-        bestD = d;
-        best = n;
-      }
-    }
-    return best;
+  // Back out to the framed overview (clears the focused cluster + any search).
+  const clearFocus = () => {
+    setFocusGroup(null);
+    setSearch('');
+    fgRef.current?.zoomToFit?.(600, 50);
   };
 
-  // Click the cluster FOG, not a node: raycast the pointer against the translucent cluster
-  // halos. A hit zooms into that cluster (a rough click anywhere in its region works); a
-  // second click inside the focused cluster opens the nearest node's hub; empty space resets.
-  const handleClick = (event: { clientX: number; clientY: number }) => {
+  // Exit a focused cluster. Zooming in pushes a history entry, so prefer popping it (browser
+  // Back) — the popstate handler then clears focus, keeping the back button in sync with us.
+  const flyOut = () => {
+    if (typeof window !== 'undefined' && window.history.state?.graphFocus) window.history.back();
+    else clearFocus();
+  };
+
+  // Zoom into a cluster. The first time (overview → focused) push a history entry so the
+  // browser Back button backs out of the zoom.
+  const enterFocus = (group: string, target?: { x: number; y: number; z: number }) => {
+    setSearch('');
+    if (!focusGroup && typeof window !== 'undefined') {
+      try {
+        window.history.pushState({ graphFocus: true }, '');
+      } catch {
+        /* history unavailable — fall back to in-page exits (Esc / empty click) */
+      }
+    }
+    setFocusGroup(group);
+    if (target) flyTo(target);
+  };
+
+  // Which cluster's fog (if any) sits under a screen point — raycast against the halos.
+  const pickFog = (event: { clientX: number; clientY: number }): string | null => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fg: any = fgRef.current;
     const canvas = wrapRef.current?.querySelector('canvas');
     const grp = aurasRef.current;
-    const reset = () => {
-      setFocusGroup(null);
-      setSearch('');
-      fg?.zoomToFit?.(600, 50);
-    };
-    if (!fg?.camera || !canvas || !grp || grp.children.length === 0) {
-      reset();
-      return;
-    }
+    if (!fg?.camera || !canvas || !grp || grp.children.length === 0) return null;
     const rect = canvas.getBoundingClientRect();
-    const px = event.clientX - rect.left;
-    const py = event.clientY - rect.top;
-    const ndc = { x: (px / rect.width) * 2 - 1, y: -(py / rect.height) * 2 + 1 };
+    const ndc = {
+      x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      y: -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    };
     const ray = new THREE.Raycaster();
     ray.setFromCamera(ndc as THREE.Vector2, fg.camera());
     const hits = ray.intersectObjects(grp.children, false);
-    if (hits.length === 0) {
-      reset(); // clicked the void between clusters → back to the full view
-      return;
-    }
-    const group = hits[0].object.userData.group as string;
-    if (focusGroup === group) {
-      const n = nearestNodeInGroup(group, px, py); // already here → open a hub
-      if (n) router.push(`${hrefBase}${encodeURIComponent(n.id)}`);
-      return;
-    }
-    setSearch('');
-    setFocusGroup(group);
-    const c = centroidsRef.current.get(group);
-    if (c) flyTo(c);
+    return hits.length ? (hits[0].object.userData.group as string) : null;
   };
+
+  // Click a cluster's fog (empty region) to zoom in; once zoomed in, an empty click backs
+  // out, and a precise node click opens that node's hub.
+  const onBackgroundClick = (event: { clientX: number; clientY: number }) => {
+    if (focusGroup) {
+      flyOut(); // already zoomed in → any empty click exits the cluster
+      return;
+    }
+    const group = pickFog(event);
+    if (!group) return;
+    enterFocus(group, centroidsRef.current.get(group));
+  };
+
+  const onNodeClick = (n: { id: string; group: string; x: number; y: number; z: number }) => {
+    if (focusGroup === n.group) {
+      router.push(`${hrefBase}${encodeURIComponent(n.id)}`); // in this cluster → open the hub
+      return;
+    }
+    enterFocus(n.group, n);
+  };
+
+  // Browser Back (popstate) backs out of a focused cluster.
+  useEffect(() => {
+    const onPop = () => clearFocus();
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ESC also backs out of a focused cluster.
+  useEffect(() => {
+    if (!focusGroup) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') flyOut();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusGroup]);
 
   // Add a starfield + subtle depth fog to the 3D scene so rotation reads as 3D motion
   // (a flat single-colour background gives no spatial reference). Added once the graph's
@@ -455,6 +480,17 @@ export function Graph3D({
           ))}
         </div>
 
+        {/* Back out of a focused cluster — always visible while zoomed in. */}
+        {focusGroup && (
+          <button
+            type="button"
+            onClick={flyOut}
+            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-black/55 px-3.5 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm hover:bg-black/75"
+          >
+            ← 전체 보기 <span className="text-white/50">(뒤로가기 · Esc)</span>
+          </button>
+        )}
+
         {/* In-graph search */}
         <div className="absolute right-3 top-3 z-10 w-44">
           <input
@@ -499,10 +535,10 @@ export function Graph3D({
           linkDirectionalParticles={activeIds ? 0 : 2}
           linkDirectionalParticleWidth={1.4}
           linkDirectionalParticleColor={() => 'rgba(200,205,220,0.8)'}
-          // Both handlers route to the cluster-fog raycast, so clicking anywhere in a
-          // cluster's coloured region zooms to it — no need to hit a node sphere precisely.
-          onNodeClick={(_n: unknown, event: MouseEvent) => handleClick(event)}
-          onBackgroundClick={(event: MouseEvent) => handleClick(event)}
+          // Click a cluster's coloured region (its fog) to zoom in — no need to hit a node
+          // precisely. Zoomed in, an empty click backs out; a node click opens its hub.
+          onNodeClick={onNodeClick}
+          onBackgroundClick={(event: MouseEvent) => onBackgroundClick(event)}
           onNodeHover={(node: unknown) => {
             const cv = wrapRef.current?.querySelector('canvas');
             if (cv) (cv as HTMLElement).style.cursor = node ? 'pointer' : 'grab';
@@ -519,7 +555,7 @@ export function Graph3D({
         {focusGroup ? (
           <>
             <span className="text-fg">「{kind === 'entity' ? ENTITY_LABEL[focusGroup] ?? focusGroup : focusGroup}」</span>{' '}
-            클러스터로 확대됨 · 영역을 다시 클릭하면 가까운 허브로 ·{' '}
+            클러스터로 확대됨 · 노드를 클릭하면 허브로, 뒤로가기·빈 곳·Esc로 빠져나오기 ·{' '}
             <button
               type="button"
               onClick={() => {
